@@ -35,7 +35,7 @@ def monitor_line_sensor():
     global turns, value, previous_value, previous_previous_value, perimeter, time_turn, speed
     while True:
         # value = GPIO.input(LINE_SENSOR_PIN)
-        value = random.randint(0,1)*random.randint(0,1)
+        value = random.randint(0,1)
         if ((previous_value == value) and (previous_value != previous_previous_value)):
             turns += 1
             speed = perimeter/(2*max(time.time() - time_turn, 0.001))
