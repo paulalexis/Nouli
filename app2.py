@@ -1,12 +1,12 @@
 from flask import Flask, render_template
-# import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import threading
 import time
 
 # Set up the GPIO pin
-# LINE_SENSOR_PIN = 2  # Set to GPIO pin 2
-# GPIO.setmode(GPIO.BCM)
-# GPIO.setup(LINE_SENSOR_PIN, GPIO.IN)
+LINE_SENSOR_PIN = 2  # Set to GPIO pin 2
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LINE_SENSOR_PIN, GPIO.IN)
 
 # Initialize Flask
 app = Flask(__name__)
@@ -33,8 +33,7 @@ def max(a,b):
 def monitor_line_sensor():
     global turns, value, previous_value, previous_previous_value, perimeter, time_turn, speed
     while True:
-        # value = GPIO.input(LINE_SENSOR_PIN)
-        value = 1 if int(time.time()/10) % 5 == 0 else 0
+        value = GPIO.input(LINE_SENSOR_PIN)
         if ((previous_value == value) and (previous_value != previous_previous_value)):
             turns += 1
             speed = perimeter/(2*max(time.time() - time_turn, 0.001))
