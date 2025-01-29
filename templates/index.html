@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turn Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    #canvas {
+      border: 1px solid black;
+      margin-top: 20px;
+    }
+    iframe {
+      margin-top: 20px;
+      width: 854px;
+      height: 480px;
+    }
+    .container {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .chart-container {
+      flex: 1;
+      min-width: 400px;
+    }
+    .info-container {
+      flex: 1;
+      min-width: 300px;
+    }
+  </style>
+
+  <!-- Include Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Turn Tracker</h1>
+
+  <!-- Information Display -->
+  <div class="container">
+    <div class="info-container">
+      <p id="turnsDisplay">Turns: 0</p>
+      <p id="speedDisplay">Speed: 0</p>
+      <p id="time_turnDisplay">Time since last turn: 0</p>
+    </div>
+
+    <!-- Twitch Stream Embed -->
+    <div class="info-container">
+      <h3>Live Twitch Stream</h3>
+      <iframe src="https://player.twitch.tv/?channel=clemovitch&parent=http://localhost/" frameborder="0" allowfullscreen="true"></iframe>
+    </div>
+  </div>
+
+  <!-- Chart.js Canvas -->
+  <div class="chart-container">
+    <canvas id="turnsChart" width="400" height="100"></canvas>
+  </div>
+
+  <script>
+    // Initialize chart data
+    const data = {
+      labels: [],  // Empty array for time labels
+      datasets: [{
+        label: 'Turns over Time',
+        data: [],  // Empty array for the turns data
+        fill: false,
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0
+      }]
+    };
+
+    // Chart.js configuration
+    const config = {
+      type: 'line',
+      data: data,
+      options: {
+        animation: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        responsive: true,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Turns'
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    };
+
+    // Create the chart
+    const ctx = document.getElementById('turnsChart').getContext('2d');
+    const turnsChart = new Chart(ctx, config);
+
+    // Fetch data from Flask endpoint
+    function fetchData() {
+      fetch(`/data`)
+        .then(response => response.json())
+        .then(dataResponse => {
+          // Update displayed values
+          document.getElementById('turnsDisplay').innerText = `Turns: ${dataResponse.turns}`;
+          document.getElementById('speedDisplay').innerText = `Speed: ${dataResponse.speed}`;
+          document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${dataResponse.time_turn}`;
+
+          // Update the chart with new data
+          const currentTime = new Date().toLocaleTimeString();  // Current time for the x-axis label
+          data.labels.push(currentTime);  // Add the current time to the labels array
+          data.datasets[0].data.push(dataResponse.turns);  // Add the turns to the dataset
+
+          // Limit the chart data to a max of 20 entries (optional)
+          if (data.labels.length > 20) {
+            data.labels.shift();
+            data.datasets[0].data.shift();
+          }
+
+          turnsChart.options.scales.y.max = dataResponse.turns + 1;
+          turnsChart.options.scales.y.min = data.datasets[0].data[0] - 1;
+
+          // Update the chart
+          turnsChart.update();
+        })
+        .catch(error => console.error("Error fetching data: ", error));
+    }
+
+    // Call fetchData every second
+    setInterval(fetchData, 1000);
+  </script>
+</body>
+</html>
