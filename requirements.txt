@@ -18,7 +18,6 @@ colorzero==2.0
 ConfigArgParse==1.5.3
 configobj==5.0.8
 cryptography==38.0.4
-dbus-python==1.3.2
 dill==0.3.6
 distro==1.8.0
 docutils==0.19
