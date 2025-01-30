@@ -28,7 +28,7 @@ def init_db():
     # Create activity table if it doesn't exist
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS activity (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             time TEXT NOT NULL,
             turns INTEGER NOT NULL,
             speed REAL NOT NULL
@@ -39,14 +39,14 @@ def init_db():
     row_count = cursor.fetchone()[0]
 
     if row_count == 0:
-        cursor.execute("INSERT INTO activity (time, turns, speed) VALUES (?, ?, ?)", 
+        cursor.execute("INSERT INTO activity (time, turns, speed) VALUES (%s, %s, %s)", 
                     (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0, 0.0))
         conn.commit()
     
     # Create a table to store the last 3 sensor values (value, previous_value, previous_previous_value)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sensor_state (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             previous_value INTEGER,
             previous_previous_value INTEGER
         )
@@ -62,7 +62,7 @@ def init_db():
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS histogram (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             time_start TEXT NOT NULL,
             interval_length REAL NOT NULL,
             turns INTEGER NOT NULL
@@ -96,7 +96,7 @@ def insert_turns_to_db():
     # Insert the new row
     cursor.execute('''
         INSERT INTO activity (turns, time, speed)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
     ''', (turns, timestamp, round(speed, 3)))
     conn.commit()
 
@@ -114,7 +114,7 @@ def insert_turns_to_db():
     if not last_row:
         cursor.execute('''
                 INSERT INTO histogram (time_start, interval_length, turns)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             ''', (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length_base, 1))
         conn.commit()
     else:
@@ -123,14 +123,14 @@ def insert_turns_to_db():
         if time_start_int + interval_length > time.time():
             cursor.execute('''
                 UPDATE histogram 
-                SET turns = ?
-                WHERE id = ?
+                SET turns = %s
+                WHERE id = %s
             ''', (turns_tot + 1, id))
             conn.commit()
         else:
             cursor.execute('''
                 INSERT INTO histogram (time_start, interval_length, turns)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             ''', (datetime.fromtimestamp(time_start_int + interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length_base, 1))
             conn.commit()
 
@@ -158,7 +158,7 @@ def monitor_line_sensor():
         # Update the sensor state table with the new values
         cursor.execute('''
             UPDATE sensor_state 
-            SET previous_previous_value = ?, previous_value = ?
+            SET previous_previous_value = %s, previous_value = %s
             WHERE id = 1
         ''', (previous_value, value))
         conn.commit()
@@ -223,7 +223,7 @@ def get_histogram_data():
     cursor.execute('''
         SELECT time_start, turns 
         FROM histogram 
-        WHERE time_start LIKE ?
+        WHERE time_start LIKE %s
         ORDER BY time_start
     ''', (f'{today}%',))  # '%' is a wildcard for the entire day
     
