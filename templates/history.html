@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hamster Activity History</title>
+  <style>
+    body {
+      font-family: 'Press Start 2P', cursive;
+      background-color: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: red;
+      text-shadow: 2px 2px 4px rgba(255, 0, 0, 0.7);
+    }
+
+    table {
+      width: 80%;
+      margin-top: 20px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid red;
+    }
+
+    th {
+      background-color: red;
+    }
+
+    tr:nth-child(even) {
+      background-color: #222;
+    }
+
+    tr:nth-child(odd) {
+      background-color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Hamster Activity History</h1>
+
+  <!-- Table to display the raw data -->
+  <table id="historyTable">
+    <thead>
+      <tr>
+        <th>Current Value</th>
+        <th>Previous Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows will be dynamically inserted here -->
+    </tbody>
+  </table>
+
+  <script>
+    function loadHistoryData() {
+      fetch('/coHistoryBits')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          const historyTable = document.getElementById('historyTable').getElementsByTagName('tbody')[0];
+
+          // Clear the table before populating
+          historyTable.innerHTML = '';
+
+          if (!data.data || data.data.length === 0) {
+            historyTable.innerHTML = '<tr><td colspan="2">No data available</td></tr>';
+            return;
+          }
+
+          // Populate table with data
+          data.data.forEach(entry => {
+            const row = historyTable.insertRow();
+            const currentValue = row.insertCell(0);
+            const previousValue = row.insertCell(1);
+
+            // Assign values
+            currentValue.textContent = entry[1]; 
+            previousValue.textContent = entry[2];
+          });
+        })
+        .catch(error => console.error('Error fetching history data:', error));
+    }
+
+    // Load data on page load and refresh every 2 seconds
+    window.onload = loadHistoryData;
+    setInterval(loadHistoryData, 500);
+  </script>
+
+</body>
+</html>
