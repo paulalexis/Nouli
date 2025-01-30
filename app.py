@@ -4,6 +4,13 @@ import time
 from datetime import datetime
 import sqlite3
 import random
+import psycopg2
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set. Set it as an environment variable!")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -15,57 +22,57 @@ def max(a, b):
 
 # Initialize database
 def init_db():
-    with sqlite3.connect('activity_data.db') as conn:
-        cursor = conn.cursor()
-        
-        # Create activity table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS activity (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time TEXT NOT NULL,
-                turns INTEGER NOT NULL,
-                speed REAL NOT NULL
-            )
-        ''')
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+    
+    # Create activity table if it doesn't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            time TEXT NOT NULL,
+            turns INTEGER NOT NULL,
+            speed REAL NOT NULL
+        )
+    ''')
 
-        cursor.execute("SELECT COUNT(*) FROM activity")
-        row_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM activity")
+    row_count = cursor.fetchone()[0]
 
-        if row_count == 0:
-            cursor.execute("INSERT INTO activity (time, turns, speed) VALUES (?, ?, ?)", 
-                        (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0, 0.0))
-            conn.commit()
-        
-        # Create a table to store the last 3 sensor values (value, previous_value, previous_previous_value)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sensor_state (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                previous_value INTEGER,
-                previous_previous_value INTEGER
-            )
-        ''')
+    if row_count == 0:
+        cursor.execute("INSERT INTO activity (time, turns, speed) VALUES (?, ?, ?)", 
+                    (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0, 0.0))
         conn.commit()
+    
+    # Create a table to store the last 3 sensor values (value, previous_value, previous_previous_value)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sensor_state (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            previous_value INTEGER,
+            previous_previous_value INTEGER
+        )
+    ''')
+    conn.commit()
 
-        # Insert initial sensor state values into the table
-        cursor.execute('''
-            INSERT OR REPLACE INTO sensor_state (id, previous_value, previous_previous_value) 
-            VALUES (1, 0, 0)
-        ''')
-        conn.commit()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS histogram (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time_start TEXT NOT NULL,
-                interval_length REAL NOT NULL,
-                turns INTEGER NOT NULL
-            )
-        ''')
-        conn.commit()
+    # Insert initial sensor state values into the table
+    cursor.execute('''
+        INSERT OR REPLACE INTO sensor_state (id, previous_value, previous_previous_value) 
+        VALUES (1, 0, 0)
+    ''')
+    conn.commit()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS histogram (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            time_start TEXT NOT NULL,
+            interval_length REAL NOT NULL,
+            turns INTEGER NOT NULL
+        )
+    ''')
+    conn.commit()
 
 # Insert turns to the database
 def insert_turns_to_db():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     # Fetch the most recent row
@@ -134,27 +141,27 @@ def monitor_line_sensor():
     while True:
         value = random.randint(0, 1) * random.randint(0, 1)
         
-        with sqlite3.connect('activity_data.db') as conn:
-            cursor = conn.cursor()
-            # Fetch the last 3 sensor values
-            cursor.execute('SELECT previous_value, previous_previous_value FROM sensor_state WHERE id = 1')
-            row = cursor.fetchone()
-            if row:
-                previous_value, previous_previous_value = row
-            else:
-                previous_value = previous_previous_value = 0
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        # Fetch the last 3 sensor values
+        cursor.execute('SELECT previous_value, previous_previous_value FROM sensor_state WHERE id = 1')
+        row = cursor.fetchone()
+        if row:
+            previous_value, previous_previous_value = row
+        else:
+            previous_value = previous_previous_value = 0
 
-            # Check if there's a valid turn event (simple logic as an example)
-            if (previous_value == value) and (previous_value != previous_previous_value):
-                insert_turns_to_db()
-            
-            # Update the sensor state table with the new values
-            cursor.execute('''
-                UPDATE sensor_state 
-                SET previous_previous_value = ?, previous_value = ?
-                WHERE id = 1
-            ''', (previous_value, value))
-            conn.commit()
+        # Check if there's a valid turn event (simple logic as an example)
+        if (previous_value == value) and (previous_value != previous_previous_value):
+            insert_turns_to_db()
+        
+        # Update the sensor state table with the new values
+        cursor.execute('''
+            UPDATE sensor_state 
+            SET previous_previous_value = ?, previous_value = ?
+            WHERE id = 1
+        ''', (previous_value, value))
+        conn.commit()
         
         time.sleep(0.5)
 
@@ -164,7 +171,7 @@ def index():
 
 @app.route('/data')
 def data():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     # Fetch the most recent row
@@ -185,7 +192,7 @@ def data():
 
 @app.route('/last_20_entries')
 def get_last_20_entries():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute('''
         SELECT time, turns, speed FROM activity LIMIT 20
@@ -197,7 +204,7 @@ def get_last_20_entries():
 
 @app.route('/coHistoryBits')
 def history_bits():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM sensor_state ORDER BY id DESC")
     rows = cursor.fetchall()
@@ -208,7 +215,7 @@ def history_bits():
 
 @app.route('/coHistogram')
 def get_histogram_data():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     today = datetime.now().strftime('%Y/%m/%d')
     cursor = conn.cursor()
 
@@ -240,7 +247,7 @@ def get_histogram_data():
 
 @app.route('/coHistory')
 def history():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM activity ORDER BY id DESC")
     rows = cursor.fetchall()
@@ -257,7 +264,7 @@ def activity_history_page():
 
 @app.route('/clear_data')
 def clear_histogram():
-    conn = sqlite3.connect('activity_data.db')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM histogram")
