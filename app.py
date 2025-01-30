@@ -7,6 +7,8 @@ import random
 import psycopg2
 import os
 
+# os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -55,8 +57,11 @@ def init_db():
 
     # Insert initial sensor state values into the table
     cursor.execute('''
-        INSERT OR REPLACE INTO sensor_state (id, previous_value, previous_previous_value) 
+        INSERT INTO sensor_state (id, previous_value, previous_previous_value)
         VALUES (1, 0, 0)
+        ON CONFLICT (id) 
+        DO UPDATE SET previous_value = EXCLUDED.previous_value, 
+                    previous_previous_value = EXCLUDED.previous_previous_value;
     ''')
     conn.commit()
     
