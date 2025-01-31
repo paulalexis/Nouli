@@ -17,7 +17,7 @@ if not DATABASE_URL:
 # Initialize Flask app
 app = Flask(__name__)
 perimeter = 0.6
-interval_length_base = 60
+interval_length_base = 60*30
 
 def max(a, b):
     return a if a > b else b
@@ -156,7 +156,7 @@ def monitor_line_sensor():
             
             conn = psycopg2.connect(DATABASE_URL)
             cursor = conn.cursor()
-            # Fetch the last 3 sensor values
+
             cursor.execute('SELECT previous_value, previous_previous_value FROM sensor_state WHERE id = 1')
             row = cursor.fetchone()
             if row:
