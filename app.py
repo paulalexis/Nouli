@@ -1,217 +1,169 @@
 from flask import Flask, render_template, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, Integer, String, Float, DateTime, select
 import threading
 import time
 from datetime import datetime
-import sqlite3
 import random
-import psycopg2
-from psycopg2 import pool
 import os
 
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set. Set it as an environment variable!")
 
-db_pool = pool.ThreadedConnectionPool(1, 10, dsn=DATABASE_URL)
-
-def get_db_connection():
-    return db_pool.getconn()
-
-def release_db_connection(conn):
-    db_pool.putconn(conn)
-
-# Initialize Flask app
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class Activity(db.Model):
+    id = Column(Integer, primary_key=True)
+    time = Column(String, nullable=False)
+    turns = Column(Integer, nullable=False)
+    speed = Column(Float, nullable=False)
+
+class SensorState(db.Model):
+    id = Column(Integer, primary_key=True)
+    previous_value = Column(Integer)
+    previous_previous_value = Column(Integer)
+
+class Histogram(db.Model):
+    id = Column(Integer, primary_key=True)
+    time_start = Column(String, nullable=False)
+    interval_length = Column(Float, nullable=False)
+    turns = Column(Integer, nullable=False)
+
 perimeter = 0.6
-interval_length_base = 60*30
+interval_length_base = 60 * 30
 
 def max(a, b):
     return a if a > b else b
 
-# Initialize database
 def init_db():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Create activity table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS activity (
-                id SERIAL PRIMARY KEY,
-                time TEXT NOT NULL,
-                turns INTEGER NOT NULL,
-                speed REAL NOT NULL
-            )
-        ''')
+    db.create_all()
+    if not SensorState.query.first():
+        sensor_state = SensorState(id=1, previous_value=0, previous_previous_value=0)
+        db.session.add(sensor_state)
+        db.session.commit()
+    if not Histogram.query.first():
+        histogram = Histogram(id=1, time_start=datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length=interval_length_base, turns=0)
+        db.session.add(histogram)
+        db.session.commit()
 
-        cursor.execute("SELECT COUNT(*) FROM activity")
-        row_count = cursor.fetchone()[0]
-
-        if row_count == 0:
-            cursor.execute("INSERT INTO activity (time, turns, speed) VALUES (%s, %s, %s)", 
-                        (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0, 0.0))
-            conn.commit()
-        
-        # Create a table to store the last 3 sensor values (value, previous_value, previous_previous_value)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sensor_state (
-                id SERIAL PRIMARY KEY,
-                previous_value INTEGER,
-                previous_previous_value INTEGER
-            )
-        ''')
-        conn.commit()
-
-        # Insert initial sensor state values into the table
-        cursor.execute('''
-            INSERT INTO sensor_state (id, previous_value, previous_previous_value)
-            VALUES (1, 0, 0)
-            ON CONFLICT (id) 
-            DO UPDATE SET previous_value = EXCLUDED.previous_value, 
-                        previous_previous_value = EXCLUDED.previous_previous_value;
-        ''')
-        conn.commit()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS histogram (
-                id SERIAL PRIMARY KEY,
-                time_start TEXT NOT NULL,
-                interval_length REAL NOT NULL,
-                turns INTEGER NOT NULL
-            )
-        ''')
-        conn.commit()
-
-    except Exception as e:
-        print(f"Error during database initialization: {e}")
-
-    finally:
-        release_db_connection(conn)
-
-# Insert turns to the database
 def insert_turns_to_db():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    last_activity = Activity.query.order_by(Activity.id.desc()).first()
 
-        # Fetch the most recent row
-        cursor.execute("SELECT turns, time FROM activity ORDER BY id DESC LIMIT 1")
-        last_row = cursor.fetchone()
+    if last_activity:
+        turns0, time0_str = last_activity.turns, last_activity.time
+        time0 = datetime.strptime(time0_str, '%Y/%m/%d %H:%M:%S.%f').timestamp()  # More accurate timestamp conversion
+    else:
+        turns0, time0 = 0, time.time()
 
-        if last_row:
-            turns0, time0_str = last_row
-            # Convert string timestamp to a Unix timestamp
-            time0 = time.mktime(datetime.strptime(time0_str, '%Y/%m/%d %H:%M:%S.%f').timetuple())
-        else:
-            # Default values if table is empty
-            turns0, time0 = 0, time.time()
+    time_now = time.time()
+    speed = perimeter / (2 * max(time_now - time0, 0.001))  # Avoid division by zero
+    timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
 
-        # Compute new values
-        turns = turns0 + 1
-        time_now = time.time()
-        speed = perimeter / (2 * max(time_now - time0, 0.001))
-        timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
+    new_activity = Activity(time=timestamp, turns=turns0 + 1, speed=round(speed, 3))
+    db.session.add(new_activity)
 
-        # Insert the new row
-        cursor.execute('''
-            INSERT INTO activity (turns, time, speed)
-            VALUES (%s, %s, %s)
-        ''', (turns, timestamp, round(speed, 3)))
-        conn.commit()
+    # Step 1: Execute subquery to get the last 20 IDs
+    subq_results = db.session.query(Activity.id).order_by(Activity.id.desc()).limit(20).all()
 
-        # Keep only the last 20 records
-        cursor.execute('''
-            DELETE FROM activity WHERE id NOT IN (
-                SELECT id FROM activity ORDER BY id DESC LIMIT 20
-            )
-        ''')
-        conn.commit()
+    # Step 2: Extract the IDs from the subquery result (subq_results is a list of tuples)
+    id_list = [result[0] for result in subq_results]
 
-        cursor.execute("SELECT id, time_start, interval_length, turns FROM histogram ORDER BY id DESC LIMIT 1")
-        last_row = cursor.fetchone()
+    # Step 3: Delete records where the ID is not in the list of the last 20 IDs
+    db.session.query(Activity).filter(Activity.id.notin_(id_list)).delete(synchronize_session='fetch')
 
-        if not last_row:
-            cursor.execute('''
-                    INSERT INTO histogram (time_start, interval_length, turns)
-                    VALUES (%s, %s, %s)
-                ''', (datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length_base, 1))
-            conn.commit()
-        else:
-            id, time_start, interval_length, turns_tot = last_row
-            time_start_int = datetime.strptime(time_start, '%Y/%m/%d %H:%M:%S.%f').timestamp()
-            if time_start_int + interval_length > time.time():
-                cursor.execute('''
-                    UPDATE histogram 
-                    SET turns = %s
-                    WHERE id = %s
-                ''', (turns_tot + 1, id))
-                conn.commit()
+
+    # Update Histogram Table
+    last_row = Histogram.query.order_by(Histogram.id.desc()).first()
+    if not last_row:
+        new_entry = Histogram(
+            time_start=timestamp,
+            interval_length=interval_length_base,
+            turns=1
+        )
+        db.session.add(new_entry)
+    else:
+        try:
+            time_start_int = datetime.strptime(last_row.time_start, '%Y/%m/%d %H:%M:%S.%f').timestamp()
+            
+            if time_start_int + last_row.interval_length > time_now:
+                last_row.turns += 1
             else:
-                cursor.execute('''
-                    INSERT INTO histogram (time_start, interval_length, turns)
-                    VALUES (%s, %s, %s)
-                ''', (datetime.fromtimestamp(time_start_int + interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length_base, 1))
-                conn.commit()
-    except Exception as e:
-        print(f"Error while inserting turns into DB: {e}")
+                new_entry = Histogram(
+                    time_start=datetime.fromtimestamp(time_start_int + last_row.interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3],
+                    interval_length=interval_length_base,
+                    turns=1
+                )
+                db.session.add(new_entry)
+        except ValueError:
+            print("Error parsing time_start in Histogram. Resetting.")
+            new_entry = Histogram(
+                time_start=timestamp,
+                interval_length=interval_length_base,
+                turns=1
+            )
+            db.session.add(new_entry)
 
-    finally:
-        release_db_connection(conn)
+    db.session.commit()
 
-# Monitor the line sensor
-def monitor_line_sensor():    
+def monitor_line_sensor():
     while True:
         try:
-            value = random.randint(0, 1) * random.randint(0, 1)
-            
-            conn = get_db_connection()
-            cursor = conn.cursor()
+            with app.app_context():
+                value = random.randint(0, 1) * random.randint(0, 1)
 
-            cursor.execute('SELECT previous_value, previous_previous_value FROM sensor_state WHERE id = 1')
-            row = cursor.fetchone()
-            if row:
-                previous_value, previous_previous_value = row
-            else:
-                previous_value = previous_previous_value = 0
+                # Fetch the current sensor state using SQLAlchemy
+                sensor_state = db.session.get(SensorState, 1)
+                if sensor_state:
+                    previous_value = sensor_state.previous_value
+                    previous_previous_value = sensor_state.previous_previous_value
+                else:
+                    previous_value = previous_previous_value = 0
 
-            # Check if there's a valid turn event (simple logic as an example)
-            if (previous_value == value) and (previous_value != previous_previous_value):
-                insert_turns_to_db()
-            
-            # Update the sensor state table with the new values
-            cursor.execute('''
-                UPDATE sensor_state 
-                SET previous_previous_value = %s, previous_value = %s
-                WHERE id = 1
-            ''', (previous_value, value))
-            conn.commit()
+                # Check if there's a valid turn event
+                if (previous_value == value) and (previous_value != previous_previous_value):
+                    insert_turns_to_db()  # Insert the turn event into DB
+
+                # Update the sensor state table
+                if sensor_state:
+                    sensor_state.previous_previous_value = previous_value
+                    sensor_state.previous_value = value
+                    db.session.commit()
+
         except Exception as e:
             print(f"Error while monitoring the sensor: {e}")
-        
-        finally:
-            release_db_connection(conn)
-        
+
         time.sleep(0.5)
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/activityhistory')
+def activityHistoryPage():
+    return render_template('activityhistory.html')
+
 @app.route('/data')
 def data():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Fetch the two most recent activities using SQLAlchemy
+        last_two_rows = Activity.query.order_by(Activity.id.desc()).limit(2).all()
 
-        # Fetch the most recent row
-        cursor.execute("SELECT turns, time, speed FROM activity ORDER BY id DESC LIMIT 1")
-        last_row = cursor.fetchone()
-
-        if last_row:
-            turns, time, speed = last_row
+        if last_two_rows:
+            # If there's only one row, use its speed
+            if len(last_two_rows) == 1:
+                speed = last_two_rows[0].speed
+            else:
+                # If there are two rows, calculate the average speed
+                speed = (last_two_rows[0].speed + last_two_rows[1].speed) / 2
+            turns = last_two_rows[0].turns
+            time = last_two_rows[0].time
         else:
             turns, time, speed = 0, datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
 
@@ -224,96 +176,69 @@ def data():
     except Exception as e:
         print(f"Error while fetching data: {e}")
         return jsonify({"error": "An error occurred while fetching data."})
-    finally:
-        release_db_connection(conn)
 
 @app.route('/last_20_entries')
 def get_last_20_entries():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT time, turns, speed FROM activity LIMIT 20
-        ''')
-        data = cursor.fetchall()
+        entries = Activity.query.limit(20).all()
+        data = [{"time": entry.time, "turns": entry.turns, "speed": entry.speed} for entry in entries]
+
         return {'entries': data}
     except Exception as e:
         print(f"Error while fetching last 20 entries: {e}")
         return jsonify({"error": "An error occurred while fetching the last 20 entries."})
-    finally:
-        release_db_connection(conn)
 
 @app.route('/coHistoryBits')
 def history_bits():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM sensor_state ORDER BY id DESC")
-        rows = cursor.fetchall()
-        return jsonify({"data": rows})
+        # Fetch all rows from the sensor_state table using SQLAlchemy
+        rows = SensorState.query.order_by(SensorState.id.desc()).all()
+
+        # Prepare the data to return
+        data = [{"id": row.id, "previous_value": row.previous_value, "previous_previous_value": row.previous_previous_value} for row in rows]
+
+        return jsonify({"data": data})
     except Exception as e:
         print(f"Error while fetching sensor state: {e}")
         return jsonify({"error": "An error occurred while fetching sensor state."})
-    finally:
-        release_db_connection(conn)
 
 @app.route('/coHistogram')
 def get_histogram_data():
     try:
-        conn = get_db_connection()
         today = datetime.now().strftime('%Y/%m/%d')
-        cursor = conn.cursor()
 
-        # Fetch histogram data for today's date
-        cursor.execute('''
-            SELECT time_start, turns 
-            FROM histogram 
-            WHERE time_start LIKE %s
-            ORDER BY time_start
-        ''', (f'{today}%',))  # '%' is a wildcard for the entire day
-        
-        rows = cursor.fetchall()
-        
+        # Fetch histogram data for today's date using SQLAlchemy
+        rows = Histogram.query.filter(Histogram.time_start.like(f'{today}%')).order_by(Histogram.time_start).all()
+
         # Prepare the response data
-        data = []
-        for row in rows:
-            data.append({
-                'time_start': row[0],
-                'turns': row[1],
-            })
-        
-        cursor.execute("SELECT turns FROM activity ORDER BY id DESC LIMIT 1")
-        actual_turn = cursor.fetchone()
-        turns = actual_turn if actual_turn else 0        
-        return {'data': data, 'last_turns': turns, 'interval_size': interval_length_base}
+        data = [{"time_start": row.time_start, "turns": row.turns} for row in rows]
+
+        # Fetch the most recent turn from the activity table
+        last_activity = Activity.query.order_by(Activity.id.desc()).first()
+        turns = last_activity.turns if last_activity else 0
+
+        # Return the data as JSON
+        return jsonify({
+            'data': data,
+            'last_turns': turns,
+            'interval_size': interval_length_base
+        })
     except Exception as e:
         print(f"Error while fetching histogram data: {e}")
         return jsonify({"error": "An error occurred while fetching histogram data."})
-    finally:
-        release_db_connection(conn)
 
 @app.route('/clear_data')
 def clear_histogram():
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("DELETE FROM histogram")
-        cursor.execute("DELETE FROM activity")
-        cursor.execute("DELETE FROM sensor_state")
-        conn.commit()
-        return jsonify({"message": "Data has been cleared successfully."}), 200
+        db.drop_all()
+        db.create_all()
+        return jsonify({"message": "Tables have been cleared successfully."}), 200
     except Exception as e:
         print(f"Error while clearing data: {e}")
         return jsonify({"error": "An error occurred while clearing data."}), 500
-    finally:
-        release_db_connection(conn)
 
-# Start the background thread and run Flask app
 if __name__ == '__main__':
-    try:
-        init_db()  # Initialize the database
-        threading.Thread(target=monitor_line_sensor, daemon=True).start()  # Start background thread
-        app.run(debug=True, host='0.0.0.0', port=5000)
-    except Exception as e:
-        print(f"Error starting the application: {e}")
+    with app.app_context():
+        init_db()
+    threading.Thread(target=monitor_line_sensor, daemon=True).start()
+    app.run(debug=True, host='0.0.0.0', port=5000)
