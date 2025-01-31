@@ -5,14 +5,23 @@ from datetime import datetime
 import sqlite3
 import random
 import psycopg2
+from psycopg2 import pool
 import os
 
-# os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
+os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set. Set it as an environment variable!")
+
+db_pool = pool.ThreadedConnectionPool(1, 10, dsn=DATABASE_URL)
+
+def get_db_connection():
+    return db_pool.getconn()
+
+def release_db_connection(conn):
+    db_pool.putconn(conn)
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -25,7 +34,7 @@ def max(a, b):
 # Initialize database
 def init_db():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Create activity table if it doesn't exist
@@ -79,10 +88,13 @@ def init_db():
     except Exception as e:
         print(f"Error during database initialization: {e}")
 
+    finally:
+        release_db_connection(conn)
+
 # Insert turns to the database
 def insert_turns_to_db():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         # Fetch the most recent row
@@ -143,10 +155,11 @@ def insert_turns_to_db():
                     VALUES (%s, %s, %s)
                 ''', (datetime.fromtimestamp(time_start_int + interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length_base, 1))
                 conn.commit()
-
-        conn.close()
     except Exception as e:
         print(f"Error while inserting turns into DB: {e}")
+
+    finally:
+        release_db_connection(conn)
 
 # Monitor the line sensor
 def monitor_line_sensor():    
@@ -154,7 +167,7 @@ def monitor_line_sensor():
         try:
             value = random.randint(0, 1) * random.randint(0, 1)
             
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = get_db_connection()
             cursor = conn.cursor()
 
             cursor.execute('SELECT previous_value, previous_previous_value FROM sensor_state WHERE id = 1')
@@ -175,10 +188,11 @@ def monitor_line_sensor():
                 WHERE id = 1
             ''', (previous_value, value))
             conn.commit()
-
-            conn.close()
         except Exception as e:
             print(f"Error while monitoring the sensor: {e}")
+        
+        finally:
+            release_db_connection(conn)
         
         time.sleep(0.5)
 
@@ -189,7 +203,7 @@ def index():
 @app.route('/data')
 def data():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         # Fetch the most recent row
@@ -210,41 +224,43 @@ def data():
     except Exception as e:
         print(f"Error while fetching data: {e}")
         return jsonify({"error": "An error occurred while fetching data."})
+    finally:
+        release_db_connection(conn)
 
 @app.route('/last_20_entries')
 def get_last_20_entries():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
             SELECT time, turns, speed FROM activity LIMIT 20
         ''')
         data = cursor.fetchall()
-        conn.close()
-
         return {'entries': data}
     except Exception as e:
         print(f"Error while fetching last 20 entries: {e}")
         return jsonify({"error": "An error occurred while fetching the last 20 entries."})
+    finally:
+        release_db_connection(conn)
 
 @app.route('/coHistoryBits')
 def history_bits():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM sensor_state ORDER BY id DESC")
         rows = cursor.fetchall()
-        conn.close()
-
         return jsonify({"data": rows})
     except Exception as e:
         print(f"Error while fetching sensor state: {e}")
         return jsonify({"error": "An error occurred while fetching sensor state."})
+    finally:
+        release_db_connection(conn)
 
 @app.route('/coHistogram')
 def get_histogram_data():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         today = datetime.now().strftime('%Y/%m/%d')
         cursor = conn.cursor()
 
@@ -268,31 +284,30 @@ def get_histogram_data():
         
         cursor.execute("SELECT turns FROM activity ORDER BY id DESC LIMIT 1")
         actual_turn = cursor.fetchone()
-        turns = actual_turn if actual_turn else 0
-
-        conn.close()
-        
+        turns = actual_turn if actual_turn else 0        
         return {'data': data, 'last_turns': turns, 'interval_size': interval_length_base}
     except Exception as e:
         print(f"Error while fetching histogram data: {e}")
         return jsonify({"error": "An error occurred while fetching histogram data."})
+    finally:
+        release_db_connection(conn)
 
 @app.route('/clear_data')
 def clear_histogram():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute("DELETE FROM histogram")
         cursor.execute("DELETE FROM activity")
         cursor.execute("DELETE FROM sensor_state")
         conn.commit()
-        conn.close()
-
         return jsonify({"message": "Data has been cleared successfully."}), 200
     except Exception as e:
         print(f"Error while clearing data: {e}")
         return jsonify({"error": "An error occurred while clearing data."}), 500
+    finally:
+        release_db_connection(conn)
 
 # Start the background thread and run Flask app
 if __name__ == '__main__':
