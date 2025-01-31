@@ -8,7 +8,7 @@ import psycopg2
 from psycopg2 import pool
 import os
 
-os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
+# os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
