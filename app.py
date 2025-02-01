@@ -7,6 +7,12 @@ from datetime import datetime
 import random
 import os
 
+import logging
+
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
+
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -117,7 +123,8 @@ def insert_turns_to_db():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print("Database Commit Error:", e)
+        print("❌ Database Commit Failed:", e)
+
 
 def monitor_line_sensor():
     while True:
