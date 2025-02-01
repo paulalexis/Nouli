@@ -123,7 +123,7 @@ def insert_turns_to_db():
         db.session.commit()
     except SQLAlchemyError as e:
         db.session.rollback()
-        print("❌ Error: ", e)
+        print(f"SQLAlchemy Error: {str(e)}")
 
 
 def monitor_line_sensor():
@@ -158,6 +158,7 @@ def monitor_line_sensor():
 
 @app.route('/')
 def index():
+    print(f"######################")
     return render_template('index.html')
 
 @app.route('/activityhistory')
