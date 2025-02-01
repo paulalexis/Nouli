@@ -15,6 +15,7 @@ logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
 
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set. Set it as an environment variable!")
@@ -130,7 +131,8 @@ def monitor_line_sensor():
     while True:
         try:
             with app.app_context():
-                value = random.randint(0, 1) * random.randint(0, 1)
+                # value = random.randint(0, 1) * random.randint(0, 1)
+                value = int(time.time()*1000) % 2
 
                 # Fetch the current sensor state using SQLAlchemy
                 sensor_state = db.session.get(SensorState, 1)
