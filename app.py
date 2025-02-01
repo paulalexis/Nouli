@@ -4,13 +4,13 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, select
 import threading
 import time
 from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
 import random
 import os
-
 import logging
 
 logging.basicConfig()
-logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
@@ -119,12 +119,11 @@ def insert_turns_to_db():
                 turns=1
             )
             db.session.add(new_entry)
-
     try:
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
-        print("❌ Database Commit Failed:", e)
+        print("❌ Error: ", e)
 
 
 def monitor_line_sensor():
