@@ -66,7 +66,7 @@ def init_db():
 
 
 def insert_turns_to_db():
-    print("❌❌❌❌❌❌❌")
+    print("🚀 insert_turns_to_db() STARTED!") 
     new_entry = None  # Initialize new_entry so it's always defined
     try:
         last_activity = Activity.query.order_by(Activity.id.desc()).first()
@@ -125,35 +125,46 @@ def insert_turns_to_db():
 
 
 def monitor_line_sensor():
+    print("✅ monitor_line_sensor started!")  # Debugging print
     while True:
         try:
-            # Make sure app context is active
             with app.app_context():
-                insert_turns_to_db() 
-                
-                # value = int(time.time() * 1000) % 2  # Dummy sensor value
-
-                # sensor_state = db.session.get(SensorState, 1)
-                # if sensor_state:
-                #     previous_value = sensor_state.previous_value
-                #     previous_previous_value = sensor_state.previous_previous_value
-                # else:
-                #     previous_value = previous_previous_value = 0
-
-                # # Check if there's a valid turn event
-                # if (previous_value == value) and (previous_value != previous_previous_value):
-                #     insert_turns_to_db()  # Insert the turn event into DB
-
-                # # Update the sensor state table
-                # if sensor_state:
-                #     sensor_state.previous_previous_value = previous_value
-                #     sensor_state.previous_value = value
-                #     db.session.commit()
-
+                print("✅ Calling insert_turns_to_db()")  # Debugging print
+                insert_turns_to_db()
         except Exception as e:
             print(f"Error while monitoring the sensor: {e}")
-
         time.sleep(0.5)
+
+# def monitor_line_sensor():
+#     while True:
+#         try:
+#             # Make sure app context is active
+#             with app.app_context():
+#                 insert_turns_to_db() 
+                
+#                 # value = int(time.time() * 1000) % 2  # Dummy sensor value
+
+#                 # sensor_state = db.session.get(SensorState, 1)
+#                 # if sensor_state:
+#                 #     previous_value = sensor_state.previous_value
+#                 #     previous_previous_value = sensor_state.previous_previous_value
+#                 # else:
+#                 #     previous_value = previous_previous_value = 0
+
+#                 # # Check if there's a valid turn event
+#                 # if (previous_value == value) and (previous_value != previous_previous_value):
+#                 #     insert_turns_to_db()  # Insert the turn event into DB
+
+#                 # # Update the sensor state table
+#                 # if sensor_state:
+#                 #     sensor_state.previous_previous_value = previous_value
+#                 #     sensor_state.previous_value = value
+#                 #     db.session.commit()
+
+        # except Exception as e:
+        #     print(f"Error while monitoring the sensor: {e}")
+
+        # time.sleep(0.5)
 
 @app.route('/')
 def index():
@@ -266,5 +277,5 @@ def clear_histogram():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    threading.Thread(target=monitor_line_sensor, daemon=True).start()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+        threading.Thread(target=monitor_line_sensor, daemon=True).start()
+    app.run(debug=False, host='0.0.0.0', port=5000)
