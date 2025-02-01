@@ -22,4 +22,4 @@ if __name__ == '__main__':
     thread = threading.Thread(target=background_task, daemon=True)
     thread.start()
 
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
