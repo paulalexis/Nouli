@@ -129,25 +129,26 @@ def monitor_line_sensor():
         try:
             # Make sure app context is active
             with app.app_context():
+                insert_turns_to_db() 
                 
-                value = int(time.time() * 1000) % 2  # Dummy sensor value
+                # value = int(time.time() * 1000) % 2  # Dummy sensor value
 
-                sensor_state = db.session.get(SensorState, 1)
-                if sensor_state:
-                    previous_value = sensor_state.previous_value
-                    previous_previous_value = sensor_state.previous_previous_value
-                else:
-                    previous_value = previous_previous_value = 0
+                # sensor_state = db.session.get(SensorState, 1)
+                # if sensor_state:
+                #     previous_value = sensor_state.previous_value
+                #     previous_previous_value = sensor_state.previous_previous_value
+                # else:
+                #     previous_value = previous_previous_value = 0
 
-                # Check if there's a valid turn event
-                if (previous_value == value) and (previous_value != previous_previous_value):
-                    insert_turns_to_db()  # Insert the turn event into DB
+                # # Check if there's a valid turn event
+                # if (previous_value == value) and (previous_value != previous_previous_value):
+                #     insert_turns_to_db()  # Insert the turn event into DB
 
-                # Update the sensor state table
-                if sensor_state:
-                    sensor_state.previous_previous_value = previous_value
-                    sensor_state.previous_value = value
-                    db.session.commit()
+                # # Update the sensor state table
+                # if sensor_state:
+                #     sensor_state.previous_previous_value = previous_value
+                #     sensor_state.previous_value = value
+                #     db.session.commit()
 
         except Exception as e:
             print(f"Error while monitoring the sensor: {e}")
@@ -265,5 +266,5 @@ def clear_histogram():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    threading.Thread(target=insert_turns_to_db, daemon=True).start()
+    threading.Thread(target=monitor_line_sensor, daemon=True).start()
     app.run(debug=True, host='0.0.0.0', port=5000)
