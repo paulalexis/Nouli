@@ -265,5 +265,5 @@ def clear_histogram():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    threading.Thread(target=monitor_line_sensor, daemon=True).start()
+    threading.Thread(target=insert_turns_to_db, daemon=True).start()
     app.run(debug=True, host='0.0.0.0', port=5000)
