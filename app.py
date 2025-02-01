@@ -65,8 +65,8 @@ def init_db():
         db.session.commit()
 
 
-# Insert a turn into the DB
 def insert_turns_to_db():
+    new_entry = None  # Initialize new_entry so it's always defined
     try:
         last_activity = Activity.query.order_by(Activity.id.desc()).first()
 
@@ -117,11 +117,7 @@ def insert_turns_to_db():
                     turns=1
                 )
                 db.session.add(new_entry)
-
-        # Commit the transaction
         db.session.commit()
-        if new_entry.id:
-            print(f"Successfully inserted a new entry 1: {new_entry.id}")
     except SQLAlchemyError as e:
         db.session.rollback()
         print(f"SQLAlchemy Error: {str(e)}")
@@ -132,9 +128,9 @@ def monitor_line_sensor():
         try:
             # Make sure app context is active
             with app.app_context():
+                
                 value = int(time.time() * 1000) % 2  # Dummy sensor value
 
-                # Fetch the current sensor state using SQLAlchemy
                 sensor_state = db.session.get(SensorState, 1)
                 if sensor_state:
                     previous_value = sensor_state.previous_value
@@ -163,7 +159,7 @@ def index():
     print("❌❌❌")
     # Try to insert a dummy record to test database connection
     try:
-        timestamp = time.strftime('%Y/%m/%d %H:%M:%S')
+        timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
         new_activity = Activity(time=timestamp, turns=1, speed=1.5)
         db.session.add(new_activity)
         db.session.commit()
@@ -268,5 +264,5 @@ def clear_histogram():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    # threading.Thread(target=monitor_line_sensor, daemon=True).start()
+    threading.Thread(target=monitor_line_sensor, daemon=True).start()
     app.run(debug=True, host='0.0.0.0', port=5000)
