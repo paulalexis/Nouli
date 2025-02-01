@@ -1,6 +1,10 @@
 from flask import Flask
 import threading
 import time
+import logging
+
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 
