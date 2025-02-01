@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compteur de Vitesse</title>
+  <title>Compteur de Vitesse (Hamster Wheel)</title>
   <style>
-    /* style.css */
+    /* General Styling */
     body {
       display: flex;
       justify-content: center;
@@ -19,16 +19,42 @@
       text-align: center;
     }
 
+    /* Hamster Wheel Style */
     .cadran {
       width: 200px;
       height: 200px;
       border-radius: 50%;
-      border: 10px solid #333;
       position: relative;
-      background: conic-gradient(green 50%, red 100%); /* Default gradient */
+      background-color: transparent;
       margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
 
+    /* Wheel bars */
+    .cadran::before {
+      content: "";
+      position: absolute;
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      border: 5px dashed #555; /* Dashed lines to simulate cage bars */
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Rotating effect for the hamster wheel */
+    @keyframes rotateWheel {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .wheel-animation {
+      animation: rotateWheel 2s linear infinite; /* Continuous rotation */
+    }
+
+    /* Needle */
     .aiguille {
       width: 4px;
       height: 90px;
@@ -39,8 +65,10 @@
       transform-origin: bottom center;
       transform: rotate(0deg);
       transition: transform 1s ease;
+      z-index: 5;
     }
 
+    /* Speed Display */
     .valeurs {
       font-size: 18px;
     }
@@ -49,53 +77,27 @@
       margin: 5px 0;
     }
 
-    .numbers {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-    }
-
-    .number {
-      position: absolute;
-      font-size: 18px;
-      font-weight: bold;
-      text-align: center;
-    }
-
-    /* Style for the lines at theta1 and theta2 */
-    .line {
-      width: 2px;
-      height: 90px;
-      background-color: black;
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform-origin: bottom center;
-      transform: rotate(0deg);
-    }
-
-    /* Center hamster emoji */
+    /* Centered Hamster Emoji */
     .hamster {
-      font-size: 50px; /* Size of the emoji */
+      font-size: 50px;
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%); /* Center it */
-      z-index: 10; /* Make sure it stays on top */
+      transform: translate(-50%, -50%);
+      z-index: 10;
     }
+
   </style>
 </head>
 <body>
   <div class="compteur">
+    <!-- Hamster Wheel (Cadran) -->
     <div class="cadran" id="cadran">
-      <div class="numbers" id="numbersContainer">
-      </div>
       <div class="aiguille" id="aiguille"></div>
-      <!-- Hamster Emoji at the center -->
       <div class="hamster" id="hamsterEmoji">🐹</div>
     </div>
+    
+    <!-- Speed Values -->
     <div class="valeurs">
       <p>Vitesse actuelle : <span id="speedDisplay">0</span> km/h</p>
       <p>Vitesse Min : <span id="speedMin">0</span> km/h</p>
@@ -107,95 +109,40 @@
     // Global Variables
     let theta1 = -120;   // Angle where speedMin will be
     let theta2 = 120;    // Angle where speedMax will be
-    let N = 5;          // Number of speed values
-    let speedMin = 0;   // Min speed
-    let speedMax = 4;   // Max speed
+    let speedMin = 0;    // Min speed
+    let speedMax = 4;    // Max speed
 
-    // Function to update the needle based on speed
-    function updateSpeed(speedAct, speedMin, speedMax, theta1, theta2) {
-      // Check that the speed is within bounds
+    // Function to update speed and needle
+    function updateSpeed(speedAct) {
+      // Keep speed within limits
       speedAct = Math.max(speedMin, Math.min(speedAct, speedMax));
 
-      // Calculate the angle based on the speed
+      // Calculate rotation angle
       const angle = ((speedAct - speedMin) / (speedMax - speedMin)) * (theta2 - theta1) + theta1;
 
-      // Apply the angle to the needle (aiguille)
-      const aiguille = document.getElementById('aiguille');
-      aiguille.style.transform = `rotate(${angle}deg)`;
+      // Rotate the needle
+      document.getElementById('aiguille').style.transform = `rotate(${angle}deg)`;
 
-      // Update the displayed speed
+      // Update speed display
       document.getElementById('speedDisplay').textContent = speedAct;
 
-      // Update the background gradient of the dial dynamically based on speed
-      updateGradient(speedAct, speedMin, speedMax, theta1, theta2);
-    }
-
-    // Function to update the gradient of the speedometer dial based on the current speed
-    function updateGradient(speedAct, speedMin, speedMax, theta1, theta2) {
-      const angleStart = theta1;
-      const angleEnd = ((speedAct - speedMin) / (speedMax - speedMin)) * 360;
-
+      // Apply animation to the hamster wheel
       const cadran = document.getElementById('cadran');
-      cadran.style.background = `conic-gradient(from ${angleStart}deg, 
-        rgba(0, 255, 0, 0.5), 
-        rgba(255, 165, 0, 0.5) ${Math.round(100 * ((theta2 - theta1) / 2) / 360)}%, 
-        rgba(255, 0, 0, 0.5) ${Math.round(100 * (theta2 - theta1) / 360)}%, 
-        rgba(255, 255, 255, 0.5) ${Math.round(100 * (theta2 - theta1) / 360)}%)`;
-    }
-
-    // Function to update the numbers on the speedometer
-    function updateSpeedNumbers(speedMin, speedMax, theta1, theta2, N) {
-      const numbersContainer = document.getElementById('numbersContainer');
-      numbersContainer.innerHTML = ''; // Clear existing numbers
-
-      // Calculate the angle between each number
-      const angleStep = (theta2 - theta1) / (N - 1); // Step between each number
-
-      // Create numbers and calculate their positions
-      for (let i = 0; i < N; i++) {
-        const num = Math.round(speedMin + ((speedMax - speedMin) / (N - 1)) * i); // Evenly distribute numbers between speedMin and speedMax
-        const angle = theta1 + i * angleStep; // Calculate the angle for this number
-
-        // Convert angle to radians for CSS transform
-        const angleInRadians = ((angle-90) * Math.PI) / 180;
-
-        // Calculate the position of each number
-        const top = 50 + Math.sin(angleInRadians) * 45; // Radius of 45 for vertical positioning
-        const left = 50 + Math.cos(angleInRadians) * 45; // Radius of 45 for horizontal positioning
-
-        // Create the number element and set its position
-        const numberElem = document.createElement('div');
-        numberElem.classList.add('number');
-        numberElem.textContent = num;
-        numberElem.style.top = `${top}%`;
-        numberElem.style.left = `${left}%`;
-        numberElem.style.transform = 'translate(-50%, -50%)';
-
-        // Append the number to the container
-        numbersContainer.appendChild(numberElem);
+      if (speedAct > 0) {
+        cadran.classList.add("wheel-animation"); // Start rotation
+      } else {
+        cadran.classList.remove("wheel-animation"); // Stop rotation
       }
     }
 
-    // Function to fetch speed data and update the speedometer
+    // Simulated Speed Data (Can be replaced with server data)
     function fetchSpeedData() {
-      fetch('/data')
-        .then(response => response.json())
-        .then(data => {
-          const currentSpeed = data.speed || 0; // Current speed from server
-
-          // Update the speed numbers on the speedometer
-          updateSpeedNumbers(speedMin, speedMax, theta1, theta2, N);
-
-          // Update the speed and needle
-          updateSpeed(Math.round(currentSpeed * 3.6 * 100) / 100, speedMin, speedMax, theta1, theta2);
-        })
-        .catch(error => {
-          console.error('Erreur lors de la récupération des données:', error);
-        });
+      let randomSpeed = (Math.random() * 4).toFixed(2); // Random speed between 0 and 4 km/h
+      updateSpeed(randomSpeed);
     }
 
-    // Update the speed every 2 seconds
-    setInterval(fetchSpeedData, 2000);  // Update speed every 2 seconds
+    // Update speed every 2 seconds
+    setInterval(fetchSpeedData, 2000);
   </script>
 </body>
 </html>

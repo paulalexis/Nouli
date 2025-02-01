@@ -13,6 +13,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set. Set it as an environment variable!")
 
+if DATABASE_URL.startswith("postgres://"):  # Render gives "postgres://", but SQLAlchemy expects "postgresql://"
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -110,7 +113,11 @@ def insert_turns_to_db():
             )
             db.session.add(new_entry)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Database Commit Error:", e)
 
 def monitor_line_sensor():
     while True:
