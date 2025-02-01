@@ -66,6 +66,7 @@ def init_db():
 
 
 def insert_turns_to_db():
+    print("❌❌❌❌❌❌❌")
     new_entry = None  # Initialize new_entry so it's always defined
     try:
         last_activity = Activity.query.order_by(Activity.id.desc()).first()
