@@ -14,6 +14,7 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
+# os.environ['DATABASE_URL'] = 'postgresql://nouli_database_user:ZtVNvHUPyGHTsb8tIoo2vLPwpsPAx5MS@dpg-cudp9h3tq21c738ieur0-a.frankfurt-postgres.render.com/nouli_database'
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -128,37 +129,48 @@ def insert_turns_to_db():
 
 def monitor_line_sensor():
     while True:
-        try:
-            with app.app_context():
-                # value = random.randint(0, 1) * random.randint(0, 1)
-                value = int(time.time()*1000) % 2
+        # try:
+        #     with app.app_context():
+        #         # value = random.randint(0, 1) * random.randint(0, 1)
+        #         value = int(time.time()*1000) % 2
 
-                # Fetch the current sensor state using SQLAlchemy
-                sensor_state = db.session.get(SensorState, 1)
-                if sensor_state:
-                    previous_value = sensor_state.previous_value
-                    previous_previous_value = sensor_state.previous_previous_value
-                else:
-                    previous_value = previous_previous_value = 0
+        #         # Fetch the current sensor state using SQLAlchemy
+        #         sensor_state = db.session.get(SensorState, 1)
+        #         if sensor_state:
+        #             previous_value = sensor_state.previous_value
+        #             previous_previous_value = sensor_state.previous_previous_value
+        #         else:
+        #             previous_value = previous_previous_value = 0
 
-                # Check if there's a valid turn event
-                if (previous_value == value) and (previous_value != previous_previous_value):
-                    insert_turns_to_db()  # Insert the turn event into DB
+        #         # Check if there's a valid turn event
+        #         if (previous_value == value) and (previous_value != previous_previous_value):
+        #             insert_turns_to_db()  # Insert the turn event into DB
 
-                # Update the sensor state table
-                if sensor_state:
-                    sensor_state.previous_previous_value = previous_value
-                    sensor_state.previous_value = value
-                    db.session.commit()
+        #         # Update the sensor state table
+        #         if sensor_state:
+        #             sensor_state.previous_previous_value = previous_value
+        #             sensor_state.previous_value = value
+        #             db.session.commit()
 
-        except Exception as e:
-            print(f"Error while monitoring the sensor: {e}")
+        # except Exception as e:
+        #     print(f"Error while monitoring the sensor: {e}")
 
         time.sleep(0.5)
 
 @app.route('/')
 def index():
-    print(f"######################")
+    print("######################")
+    print("❌❌❌")
+    # Try to insert a dummy record to test database connection
+    try:
+        timestamp = time.strftime('%Y/%m/%d %H:%M:%S')
+        new_activity = Activity(time=timestamp, turns=1, speed=1.5)
+        db.session.add(new_activity)
+        db.session.commit()
+        print(f"Successfully inserted a new record: {new_activity.id}")
+    except SQLAlchemyError as e:
+        db.session.rollback()  # Rollback on error
+        print(f"❌ Error inserting into database: {e}")
     return render_template('index.html')
 
 @app.route('/activityhistory')
