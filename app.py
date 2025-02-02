@@ -65,121 +65,107 @@ def init_db():
         db.session.commit()
 
 
-def insert_turns_to_db():
-    print("🚀 insert_turns_to_db() STARTED!") 
-    new_entry = None  # Initialize new_entry so it's always defined
-    try:
-        last_activity = Activity.query.order_by(Activity.id.desc()).first()
+# def insert_turns_to_db():
+#     print("🚀 insert_turns_to_db() STARTED!") 
+#     new_entry = None  # Initialize new_entry so it's always defined
+#     try:
+#         last_activity = Activity.query.order_by(Activity.id.desc()).first()
 
-        if last_activity:
-            turns0, time0_str = last_activity.turns, last_activity.time
-            time0 = datetime.strptime(time0_str, '%Y/%m/%d %H:%M:%S.%f').timestamp()
-        else:
-            turns0, time0 = 0, time.time()
+#         if last_activity:
+#             turns0, time0_str = last_activity.turns, last_activity.time
+#             time0 = datetime.strptime(time0_str, '%Y/%m/%d %H:%M:%S.%f').timestamp()
+#         else:
+#             turns0, time0 = 0, time.time()
 
-        time_now = time.time()
-        speed = perimeter / (2 * max(time_now - time0, 0.001))  # Avoid division by zero
-        timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
+#         time_now = time.time()
+#         speed = perimeter / (2 * max(time_now - time0, 0.001))  # Avoid division by zero
+#         timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
 
-        new_activity = Activity(time=timestamp, turns=turns0 + 1, speed=round(speed, 3))
-        db.session.add(new_activity)
+#         new_activity = Activity(time=timestamp, turns=turns0 + 1, speed=round(speed, 3))
+#         db.session.add(new_activity)
 
-        # Execute subquery to get the last 20 IDs and clean the database
-        subq_results = db.session.query(Activity.id).order_by(Activity.id.desc()).limit(20).all()
-        id_list = [result[0] for result in subq_results]
-        db.session.query(Activity).filter(Activity.id.notin_(id_list)).delete(synchronize_session='fetch')
+#         # Execute subquery to get the last 20 IDs and clean the database
+#         subq_results = db.session.query(Activity.id).order_by(Activity.id.desc()).limit(20).all()
+#         id_list = [result[0] for result in subq_results]
+#         db.session.query(Activity).filter(Activity.id.notin_(id_list)).delete(synchronize_session='fetch')
 
-        # Update Histogram Table
-        last_row = Histogram.query.order_by(Histogram.id.desc()).first()
-        if not last_row:
-            new_entry = Histogram(
-                time_start=timestamp,
-                interval_length=interval_length_base,
-                turns=1
-            )
-            db.session.add(new_entry)
-        else:
-            try:
-                time_start_int = datetime.strptime(last_row.time_start, '%Y/%m/%d %H:%M:%S.%f').timestamp()
-                if time_start_int + last_row.interval_length > time_now:
-                    last_row.turns += 1
-                else:
-                    new_entry = Histogram(
-                        time_start=datetime.fromtimestamp(time_start_int + last_row.interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3],
-                        interval_length=interval_length_base,
-                        turns=1
-                    )
-                    db.session.add(new_entry)
-            except ValueError:
-                print("Error parsing time_start in Histogram. Resetting.")
-                new_entry = Histogram(
-                    time_start=timestamp,
-                    interval_length=interval_length_base,
-                    turns=1
-                )
-                db.session.add(new_entry)
-        db.session.commit()
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        print(f"SQLAlchemy Error: {str(e)}")
+#         # Update Histogram Table
+#         last_row = Histogram.query.order_by(Histogram.id.desc()).first()
+#         if not last_row:
+#             new_entry = Histogram(
+#                 time_start=timestamp,
+#                 interval_length=interval_length_base,
+#                 turns=1
+#             )
+#             db.session.add(new_entry)
+#         else:
+#             try:
+#                 time_start_int = datetime.strptime(last_row.time_start, '%Y/%m/%d %H:%M:%S.%f').timestamp()
+#                 if time_start_int + last_row.interval_length > time_now:
+#                     last_row.turns += 1
+#                 else:
+#                     new_entry = Histogram(
+#                         time_start=datetime.fromtimestamp(time_start_int + last_row.interval_length).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3],
+#                         interval_length=interval_length_base,
+#                         turns=1
+#                     )
+#                     db.session.add(new_entry)
+#             except ValueError:
+#                 print("Error parsing time_start in Histogram. Resetting.")
+#                 new_entry = Histogram(
+#                     time_start=timestamp,
+#                     interval_length=interval_length_base,
+#                     turns=1
+#                 )
+#                 db.session.add(new_entry)
+#         db.session.commit()
+#     except SQLAlchemyError as e:
+#         db.session.rollback()
+#         print(f"SQLAlchemy Error: {str(e)}")
 
 
-def monitor_line_sensor():
-    print("✅ monitor_line_sensor started!")  # Debugging print
-    while True:
-        try:
-            with app.app_context():
-                print("✅ Calling insert_turns_to_db()")  # Debugging print
-                insert_turns_to_db()
-        except Exception as e:
-            print(f"Error while monitoring the sensor: {e}")
-        time.sleep(0.5)
+# def monitor_line_sensor():
+#     print("✅ monitor_line_sensor started!")  # Debugging print
+#     while True:
+#         try:
+#             with app.app_context():
+#                 print("✅ Calling insert_turns_to_db()")  # Debugging print
+#                 insert_turns_to_db()
+#         except Exception as e:
+#             print(f"Error while monitoring the sensor: {e}")
+#         time.sleep(0.5)
 
 # def monitor_line_sensor():
 #     while True:
 #         try:
 #             # Make sure app context is active
-#             with app.app_context():
-#                 insert_turns_to_db() 
-                
-#                 # value = int(time.time() * 1000) % 2  # Dummy sensor value
+#             with app.app_context():              
+#                 value = int(time.time() * 1000) % 2  # Dummy sensor value
 
-#                 # sensor_state = db.session.get(SensorState, 1)
-#                 # if sensor_state:
-#                 #     previous_value = sensor_state.previous_value
-#                 #     previous_previous_value = sensor_state.previous_previous_value
-#                 # else:
-#                 #     previous_value = previous_previous_value = 0
+#                 sensor_state = db.session.get(SensorState, 1)
+#                 if sensor_state:
+#                     previous_value = sensor_state.previous_value
+#                     previous_previous_value = sensor_state.previous_previous_value
+#                 else:
+#                     previous_value = previous_previous_value = 0
 
-#                 # # Check if there's a valid turn event
-#                 # if (previous_value == value) and (previous_value != previous_previous_value):
-#                 #     insert_turns_to_db()  # Insert the turn event into DB
+#                 # Check if there's a valid turn event
+#                 if (previous_value == value) and (previous_value != previous_previous_value):
+#                     insert_turns_to_db()  # Insert the turn event into DB
 
-#                 # # Update the sensor state table
-#                 # if sensor_state:
-#                 #     sensor_state.previous_previous_value = previous_value
-#                 #     sensor_state.previous_value = value
-#                 #     db.session.commit()
+#                 # Update the sensor state table
+#                 if sensor_state:
+#                     sensor_state.previous_previous_value = previous_value
+#                     sensor_state.previous_value = value
+#                     db.session.commit()
 
-        # except Exception as e:
-        #     print(f"Error while monitoring the sensor: {e}")
+#         except Exception as e:
+#             print(f"Error while monitoring the sensor: {e}")
 
-        # time.sleep(0.5)
+#         time.sleep(0.5)
 
 @app.route('/')
 def index():
-    print("######################")
-    print("❌❌❌")
-    # Try to insert a dummy record to test database connection
-    try:
-        timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
-        new_activity = Activity(time=timestamp, turns=1, speed=1.5)
-        db.session.add(new_activity)
-        db.session.commit()
-        print(f"Successfully inserted a new record: {new_activity.id}")
-    except SQLAlchemyError as e:
-        db.session.rollback()  # Rollback on error
-        print(f"❌ Error inserting into database: {e}")
     return render_template('index.html')
 
 @app.route('/activityhistory')
@@ -277,5 +263,5 @@ def clear_histogram():
 if __name__ == '__main__':
     with app.app_context():
         init_db()
-    threading.Thread(target=monitor_line_sensor, daemon=True).start()
+    # threading.Thread(target=monitor_line_sensor, daemon=True).start()
     app.run(debug=False, host='0.0.0.0', port=5000)
