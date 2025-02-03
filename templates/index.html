@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hamster Activity Tracker</title>
+  <title>Noulive</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
     body {
@@ -25,35 +25,50 @@
 
     /* Tabs container */
     .tabs {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
+        display: flex;
+        align-items: center;  /* Aligns items vertically */
+        justify-content: space-between;  /* Places image on the left, buttons centered */
+        gap: 10px;
+        margin-bottom: 20px;
+        width: 100%;  /* Ensures it spans the full width */
     }
 
-    /* Pixel-art tab buttons */
+    .center-img {
+        max-width: 150px;  /* Adjust as needed */
+        height: auto;
+    }
+
+    .tab-buttons-container {
+        display: flex;
+        justify-content: center; /* Centers the buttons */
+        flex-grow: 1; /* Ensures buttons take up space independently */
+        gap: 10px;
+    }
+
     .tab-button {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 12px;
-      background-color: black;
-      color: red;
-      padding: 10px 15px;
-      border: 4px solid red;
-      box-shadow: 4px 4px 0px rgba(255, 0, 0, 0.7);
-      cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.1s;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 12px;
+        background-color: black;
+        color: red;
+        padding: 10px 15px;
+        border: 4px solid red;
+        box-shadow: 4px 4px 0px rgba(255, 0, 0, 0.7);
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.1s;
+        white-space: nowrap; /* Prevents buttons from resizing due to content */
     }
 
     .tab-button:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 6px 6px 0px rgba(255, 0, 0, 0.7);
+        transform: translate(-2px, -2px);
+        box-shadow: 6px 6px 0px rgba(255, 0, 0, 0.7);
     }
 
     .tab-button.active {
-      background-color: red;
-      color: black;
-      border-color: black;
+        background-color: red;
+        color: black;
+        border-color: black;
     }
+
 
     /* Hide all containers by default */
     .container, .summary-container {
@@ -119,7 +134,7 @@
     .aiguille {
       width: 4px;
       height: 90px;
-      background-color: red;
+      background-color: black;
       position: absolute;
       top: 10px;
       left: 50%;
@@ -176,20 +191,32 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="icon" href="https://i.ibb.co/Q79JzryV/fav-nouli.png" type="image/png">
 </head>
+
 <body>
-  <h1>Activity Tracker</h1>
+  <div id="title">
+    
+    <!-- <h1>Activity Tracker</h1> -->
+  </div>
 
   <!-- Tabs for switching between real-time data and night summary -->
   <div class="tabs">
-    <button class="tab-button active" id="realTimeTab">Real-Time Data</button>
-    <button class="tab-button" id="nightSummaryTab">Night Summary</button>
+    <a href="#" id="logoLink">
+        <img id="logoImage" src="https://i.ibb.co/C5RHj89j/nouli.png" alt="nouli" class="center-img">
+    </a>
+    <div class="tab-buttons-container">
+        <button class="tab-button active" id="realTimeTab">Real-Time Data</button>
+        <button class="tab-button" id="nightSummaryTab">Night Summary</button>
+    </div>
   </div>
+
 
   <!-- Real-time data and graph -->
   <div class="container active-tab" id="realTimeContainer">
     <div class="info-container">
       <p id="turnsDisplay">Turns: 0</p>
+      <p id="distanceDisplay">Distance: 0</p>
       <p id="speedDisplay">Speed: 0</p>
       <!-- <p id="time_turnDisplay">Time since last turn: 0</p> -->
       <div class="compteur">
@@ -273,6 +300,7 @@
             },
             ticks: {
               color: 'white',
+              stepSize: 1,
             },
             beginAtZero: true
           }
@@ -318,6 +346,8 @@
         }
       }
     };
+
+    const perimetre = 0.6;
 
     const ctxTurns = document.getElementById('turnsChart').getContext('2d');
     const turnsChart = new Chart(ctxTurns, turnsChartConfig);
@@ -381,10 +411,16 @@
 
             if (lastIndex > 0) {
               const turns = timeTurnData[lastIndex - 1].turns;
-              const timeString = new Date(intervalStartTime * 1000).toISOString().substr(11, 8); // Format: HH:MM:SS
+              const timeString = new Date(intervalStartTime * 1000).toLocaleTimeString('en-GB', {
+                timeZone: 'Europe/Paris',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              });
 
               // Add to the chart data
               data.labels.push(timeString);
+              console.log(timeString);
               data.datasets[0].data.push(turns);
             }
           }
@@ -400,6 +436,7 @@
           lastEntry = timeTurnData[timeTurnData.length-1];
 
           document.getElementById('turnsDisplay').innerText = `Turns: ${lastEntry.turns}`;
+          document.getElementById('distanceDisplay').innerText = `Distance: ${(perimetre * lastEntry.turns).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} m`;
           document.getElementById('speedDisplay').innerText = `Speed: ${0} km/h`;
           // document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${0} ms`;
         })
@@ -431,12 +468,12 @@
     
     // Function to track hamster's turns
     function trackTurns(turns) {
-      const currentTimeDate = new Date();
+      const currentTimeDatePrev = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris' });
+      const currentTimeDate = new Date(currentTimeDatePrev);
       
       // Find the current interval by rounding down to the nearest intervalBase
-      const intervalStartDate = new Date(currentTimeDate);
+      const intervalStartDate = new Date(currentTimeDatePrev);
       intervalStartDate.setMinutes(Math.floor(intervalStartDate.getMinutes() / (intervalBase / 60)) * (intervalBase / 60), 0, 0);
-      console.log("intervalStartDate")
       
       const intervalStartTime = intervalStartDate.toLocaleTimeString([], { hour12: false });
 
@@ -459,6 +496,7 @@
       histogramChart.update();
   
       // Update turns chart with total turns (cumulative sum)
+      const currentTime = new Date().toLocaleTimeString();
       data.labels.push(currentTime);
       data.datasets[0].data.push(turns);
   
@@ -494,8 +532,6 @@
         })
         .catch(error => console.error("Error fetching data: ", error));
     }
-
-
 
     // Compteur de vitesse:
     let theta1 = -120;   // Angle where speedMin will be
@@ -565,6 +601,19 @@
         numbersContainer.appendChild(numberElem);
       }
     }
+
+    document.getElementById("logoLink").addEventListener("click", function(event) {
+        event.preventDefault(); // Prevents the default link behavior
+
+        var img = document.getElementById("logoImage");
+
+        // Check which image is currently displayed and switch it
+        if (img.src.includes("nouli.png")) {
+            img.src = "https://i.ibb.co/S4vNpMGM/nouli-chapeau.png"; // New image
+        } else {
+            img.src = "https://i.ibb.co/C5RHj89j/nouli.png"; // Original image
+        }
+    });
 
     window.onload = function() {
       loadLast20Entries();

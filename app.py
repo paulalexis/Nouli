@@ -228,6 +228,12 @@ def data():
                 speed = (last_two_rows[0].speed + last_two_rows[1].speed) / 2
             turns = last_two_rows[0].turns
             time = last_two_rows[0].time
+
+            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f")
+
+            current_time = datetime.now()
+            if current_time - last_turn_time > timedelta(seconds=3):
+                speed = 0
         else:
             turns, time, speed = 0, datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
 
@@ -247,7 +253,7 @@ def get_last_20_entries():
         entries = Activity.query.limit(20).all()
         data = [{"time": entry.time, "turns": entry.turns, "speed": entry.speed} for entry in entries]
 
-        return {'entries': data}
+        return jsonify({'entries': data})
     except Exception as e:
         print(f"Error while fetching last 20 entries: {e}")
         return jsonify({"error": "An error occurred while fetching the last 20 entries."})
