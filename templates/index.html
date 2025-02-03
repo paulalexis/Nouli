@@ -375,7 +375,6 @@
             const intervalStartTime = currentTime - timeTurnData.length + i; // Start of the current 20-second interval
 
             // Find the most recent entry before or at the interval start time
-            console.log(timeTurnData.length);
             while (lastIndex < timeTurnData.length && timeTurnData[lastIndex].timestamp <= intervalStartTime) {
               lastIndex++;
             }
@@ -385,7 +384,6 @@
               const timeString = new Date(intervalStartTime * 1000).toISOString().substr(11, 8); // Format: HH:MM:SS
 
               // Add to the chart data
-              console.log(timeString, turns);
               data.labels.push(timeString);
               data.datasets[0].data.push(turns);
             }
@@ -400,7 +398,6 @@
           turnsChart.update();  // Update the chart to show the fetched data
 
           lastEntry = timeTurnData[timeTurnData.length-1];
-          console.log(lastEntry);
 
           document.getElementById('turnsDisplay').innerText = `Turns: ${lastEntry.turns}`;
           document.getElementById('speedDisplay').innerText = `Speed: ${0} km/h`;
@@ -426,8 +423,6 @@
           histogramChart.update();
 
           turnInPreviousInterval = dataResponse.last_turns;
-
-          console.log(turnInPreviousInterval );
           intervalBase = dataResponse.interval_size;
         })
         .catch(error => console.error("Error fetching Histogram entries: ", error));
@@ -436,27 +431,31 @@
     
     // Function to track hamster's turns
     function trackTurns(turns) {
-      const currentTime = new Date().toLocaleTimeString();
       const currentTimeDate = new Date();
-      const uselessDate = new Date();
       
-      const lastTurnHist = histogramData.datasets[0].data[histogramData.datasets[0].data.length - 1];
-      const lastDateHist = histogramData.labels[histogramData.labels.length - 1];
+      // Find the current interval by rounding down to the nearest intervalBase
+      const intervalStartDate = new Date(currentTimeDate);
+      intervalStartDate.setMinutes(Math.floor(intervalStartDate.getMinutes() / (intervalBase / 60)) * (intervalBase / 60), 0, 0);
+      console.log("intervalStartDate")
+      
+      const intervalStartTime = intervalStartDate.toLocaleTimeString([], { hour12: false });
 
-      const [hours, minutes, seconds] = lastDateHist.split(':').map(Number);
-      const lastDateHistDate = new Date(uselessDate.setHours(hours, minutes, seconds, 0));
-      lastDateHistDate.setSeconds(lastDateHistDate.getSeconds() + intervalBase);
+      // Find if the current interval already exists in the labels
+      const intervalIndex = histogramData.labels.indexOf(intervalStartTime);
 
-      if (lastDateHistDate > currentTimeDate){
-        histogramData.datasets[0].data[histogramData.datasets[0].data.length - 1] += turns - turnInPreviousInterval;
+      if (intervalIndex !== -1) {
+          // If the interval exists, update the corresponding data point
+          histogramData.datasets[0].data[intervalIndex] += turns - turnInPreviousInterval;
       } else {
-        histogramData.labels.push(lastDateHistDate.toLocaleTimeString([], { hour12: false }));
-        histogramData.datasets[0].data.push(1);
-        turnInPreviousInterval = turns - 1;
+          // If the interval does not exist, add a new entry
+          histogramData.labels.push(intervalStartTime);
+          histogramData.datasets[0].data.push(turns - turnInPreviousInterval);
       }
 
+      // Update previous turns tracker
       turnInPreviousInterval = turns;
 
+      // Refresh the chart
       histogramChart.update();
   
       // Update turns chart with total turns (cumulative sum)

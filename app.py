@@ -1,9 +1,9 @@
 from flask import Flask, render_template, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Float, DateTime, select
+from sqlalchemy import Column, Integer, String, Float, DateTime, select, and_
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.exc import SQLAlchemyError
 import random
 import os
@@ -64,6 +64,47 @@ def init_db():
         db.session.add(histogram)
         db.session.commit()
 
+def add_entries_to_histogram():
+    now = datetime.now()
+    today = now.strftime('%Y/%m/%d')
+
+    if now.hour < 12:
+        start_time = f"{today} 00:00:00.000"
+        end_time = f"{today} 12:00:00.000"
+    else:
+        start_time = f"{today} 12:00:00.000"
+        end_time = f"{today} 23:59:59.999"
+
+    # Check if any entry exists in the given time range
+    exists = db.session.query(Histogram.id).filter(
+        and_(
+            Histogram.time_start >= start_time,
+            Histogram.time_start < end_time
+        )
+    ).first()
+
+    if not exists:
+        print(f"No entries found between {start_time} and {end_time}. Creating entries...")
+
+        interval_length = 30 * 60
+        entries = []
+        current_time = datetime.strptime(start_time, "%Y/%m/%d %H:%M:%S.%f")
+
+        while current_time < datetime.strptime(end_time, "%Y/%m/%d %H:%M:%S.%f"):
+            entries.append(
+                Histogram(
+                    time_start=current_time.strftime("%Y/%m/%d %H:%M:%S.%f")[:-3],  # Trim to milliseconds
+                    interval_length=interval_length,
+                    turns=0
+                )
+            )
+            current_time += timedelta(minutes=30)
+
+        db.session.bulk_save_objects(entries)
+        db.session.commit()
+        print("Entries created successfully.")
+    else:
+        print(f"Entries already exist between {start_time} and {end_time}.")
 
 # def insert_turns_to_db():
 #     print("🚀 insert_turns_to_db() STARTED!") 
@@ -228,24 +269,39 @@ def history_bits():
 @app.route('/coHistogram')
 def get_histogram_data():
     try:
-        today = datetime.now().strftime('%Y/%m/%d')
+        now = datetime.now()
+        today = now.strftime('%Y/%m/%d')
 
-        # Fetch histogram data for today's date using SQLAlchemy
-        rows = Histogram.query.filter(Histogram.time_start.like(f'{today}%')).order_by(Histogram.time_start).all()
+        if now.hour < 12:
+            # Before noon: Get data from midnight to 11:30 AM of today
+            start_time = f"{today} 00:00:00.000"
+            end_time = f"{today} 12:00:00.000"
+        else:
+            # After noon: Get data from 12:00 PM to 11:30 PM of today
+            start_time = f"{today} 12:00:00.000"
+            end_time = f"{today} 23:59:59.999"
 
-        # Prepare the response data
+        # Fetch histogram data for the relevant time range
+        rows = Histogram.query.filter(
+            and_(
+                Histogram.time_start >= start_time,
+                Histogram.time_start < end_time
+            )
+        ).order_by(Histogram.time_start).all()
+
+        # Prepare response data
         data = [{"time_start": row.time_start, "turns": row.turns} for row in rows]
 
         # Fetch the most recent turn from the activity table
         last_activity = Activity.query.order_by(Activity.id.desc()).first()
         turns = last_activity.turns if last_activity else 0
 
-        # Return the data as JSON
         return jsonify({
             'data': data,
             'last_turns': turns,
             'interval_size': interval_length_base
         })
+
     except Exception as e:
         print(f"Error while fetching histogram data: {e}")
         return jsonify({"error": "An error occurred while fetching histogram data."})
