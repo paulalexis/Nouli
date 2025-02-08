@@ -208,6 +208,7 @@
     <div class="tab-buttons-container">
         <button class="tab-button active" id="realTimeTab">Real-Time Data</button>
         <button class="tab-button" id="nightSummaryTab">Night Summary</button>
+        <button class="tab-button" id="nouliLive">Live</button>
     </div>
   </div>
 
@@ -241,6 +242,10 @@
       <canvas id="activityHistogram"></canvas>
     </div>
   </div>    
+  <div class="summary-container" id="nightSummaryContainer">
+    <h2>Noulive</h2>
+    <img src="/stream.mjpg" width="640" height="480" />
+  </div>
   <script>
     // Initialize data for the turns chart (same as before)
     const data = {

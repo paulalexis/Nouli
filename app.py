@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Float, DateTime, select, and_
 import threading
@@ -14,7 +14,7 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
 
 # os.environ['DATABASE_URL'] = 'postgresql://postgres:postgres@localhost:5432/activity_data'
-# os.environ['DATABASE_URL'] = 'postgresql://nouli_database_user:ZtVNvHUPyGHTsb8tIoo2vLPwpsPAx5MS@dpg-cudp9h3tq21c738ieur0-a.frankfurt-postgres.render.com/nouli_database'
+os.environ['DATABASE_URL'] = 'postgresql://nouli_database_user:ZtVNvHUPyGHTsb8tIoo2vLPwpsPAx5MS@dpg-cudp9h3tq21c738ieur0-a.frankfurt-postgres.render.com/nouli_database'
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -27,6 +27,9 @@ if DATABASE_URL.startswith("postgres://"):  # Render gives "postgres://", but SQ
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+latest_frame = None
+frame_lock = threading.Lock()
 
 db = SQLAlchemy(app)
 
@@ -208,6 +211,38 @@ def add_entries_to_histogram():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    """Receive and store an image from the Raspberry Pi."""
+    global latest_frame
+    if 'image' in request.files:
+        image_file = request.files['image']
+        image_bytes = image_file.read()
+
+        # Store the image in a global variable (thread-safe with lock)
+        with frame_lock:
+            latest_frame = image_bytes
+        return 'Image received', 200
+    return 'No image received', 400
+
+def generate_stream():
+    """Generate MJPEG stream of the latest frame."""
+    while True:
+        if latest_frame:
+            with frame_lock:
+                frame = latest_frame
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n'
+                   b'Content-Length: %d\r\n\r\n' % len(frame) + frame + b'\r\n')
+        time.sleep(0.01)  # Reduced sleep time to allow faster frame updates
+
+@app.route('/stream.mjpg')
+def stream():
+    """Route to stream the MJPEG."""
+    return Response(generate_stream(), 
+                    content_type='multipart/x-mixed-replace; boundary=frame',
+                    headers={'Cache-Control': 'no-cache'})
 
 @app.route('/activityhistory')
 def activityHistoryPage():

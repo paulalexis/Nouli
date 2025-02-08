@@ -3,80 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hamster Progress Visualization</title>
+    <title>Jumping Hamster Progress Visualization</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
         }
+
         .container {
-            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             height: 200px;
             margin-top: 50px;
+            position: relative;
+            width: 600px;
         }
-        .line {
-            position: absolute;
-            top: 90px;
-            left: 50px;
-            height: 2px;
-            background-color: black;
-        }
-        .town {
-            position: absolute;
-            top: 80px;
-            width: 20px;
-            height: 20px;
+
+        .css_circle {
+            width: 30px;
+            height: 30px;
+            background: black;
             border-radius: 50%;
-            background-color: red;
-            text-align: center;
-            color: white;
-            line-height: 20px;
+            position: relative;
+            top: 10px;
         }
+
+        .css_rectangle {
+            height: 10px;
+            width: 550px;
+            background: black;
+            position: relative;
+            margin-bottom: 37.5px;
+            margin-left: -50px;
+            margin-right: -50px;
+        }
+
+        .point {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hamster-container {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            top: -10px;
+            cursor: pointer;
+        }
+
         .hamster {
-            position: absolute;
-            top: 80px;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background-color: green;
+            font-size: 30px;
+            height: 30px;
+            width: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-2px);
+            transition: transform 0.3s ease;
         }
-        .label {
-            position: absolute;
-            top: 100px;
+
+        .jumping {
+            animation: jump 0.5s ease;
         }
+
+        @keyframes jump { 
+            0%, 100% {
+                transform: translateY(-4px);
+            }
+            50% {
+                transform: translateY(-60px);
+            }
+        }
+
+        .point p {
+            margin-top: 25px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .hamster-container p {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .play-button {
+            width: 60px;
+            height: 60px;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 30px;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+
+        .play-button:hover {
+            background-color: #444;
+        }
+
+        .dot {
+            font-size: 24px;  /* Adjust emoji size */
+            position: absolute;
+            top: -60px;
+            left: 100%; /* Initially set to the far right */
+            transition: left 0.1s linear;
+        }
+
     </style>
 </head>
 <body>
-
     <h1>Hamster's Journey</h1>
+    <button class="play-button" id="playButton">
+        ⏵
+    </button>
     <div class="container">
-        <div id="line" class="line"></div>
-        <div id="town1" class="town" style="left: 0;">T1</div>
-        <div id="town2" class="town" style="left: 200px;">T2</div>
-        <div id="town3" class="town" style="left: 600px;">T3</div>
-        <div id="hamster" class="hamster" style="left: 75px;"></div>
+        <div class="point">
+            <div class="css_circle"></div>
+            <p id="Town1">Start</p>
+        </div>
+        <div class="css_rectangle">
+            <div class="hamster-container">
+                <div class="hamster">🐹</div>
+                <p style="color:red;">Nouli</p> 
+            </div> 
+            <div class="dot" id="dot">🍌</div>
+        </div>        
+        <div class="point">
+            <div class="css_circle"></div>
+            <p id="Town2">End</p>
+        </div>
     </div>
+    <div id="score">Score: 0</div>
 
     <script>
-        // Define the towns and distances (in turns)
-        const towns = ["Town1", "Town2", "Town3"];
-        const distances = [100, 1000, 3000];
-        let hamsterTurn = 150;
+        const towns = ["Cage", "Porte", "Bôbar", "Lozère"];
+        const distances = [0, 100, 200, 3000, 5000];
+        let hamsterTurn = 120;
+        const hamster = document.querySelector('.hamster');
+        let isJumping = false;
+        let score = 0;
 
-        // Calculate the position of the hamster between Town2 and Town3
-        let distanceBetweenTown2andTown3 = distances[2] - distances[1];
-        let hamsterRelativePosition = (hamsterTurn - distances[1]) / distanceBetweenTown2andTown3;
+        const dot = document.getElementById('dot');
+        let dotPositionPercent = 100; // Dot starts at the far right (100%)
+        const hamsterContainer = document.querySelector('.hamster-container');
 
-        // Update the hamster's position based on progress
-        let hamsterPosition = 200 + (hamsterRelativePosition * 400); // Town2 at 200px, Town3 at 600px
+        function getTownIndex() {
+            let i = 0;
+            while (i < distances.length - 1 && distances[i + 1] < hamsterTurn) {
+                i++;
+            }
+            return i;
+        }
 
-        // Set the hamster's position
-        document.getElementById("hamster").style.left = hamsterPosition + "px";
+        function makeHamsterJump() {
+            if (!isJumping && playing) {
+                isJumping = true;
+                hamster.classList.add('jumping');
+                setTimeout(() => {
+                    hamster.classList.remove('jumping');
+                    isJumping = false;
+                    checkDotCollision(); // Check if the hamster eats the dot
+                }, 500);
+            }
+        }
 
-        // Optional: Display label for Town2 and Town3
-        document.getElementById("town2").innerHTML = "T2 (" + distances[1] + " turns)";
-        document.getElementById("town3").innerHTML = "T3 (" + distances[2] + " turns)";
+        function checkDotCollision() {
+            // Get hamster position as a percentage of the container's width
+            const hamsterPositionPercent = parseFloat(hamsterContainer.style.left) || 0;
+            console.log(Math.abs(hamsterPositionPercent - dotPositionPercent));
+            if (Math.abs(hamsterPositionPercent - 5 - dotPositionPercent) < 5) { // Tolerance for collision
+                score++;
+                document.getElementById('score').textContent = `Score: ${score}`;
+                resetDotPosition(); // Reset the dot to the right side
+            }
+        }
+
+        function resetDotPosition() {
+            // Hide the dot by making it invisible
+            dot.style.visibility = 'hidden'; 
+            
+            // Reset the position of the dot to the right side (100%)
+            dotPositionPercent = 100;
+            dot.style.left = `${dotPositionPercent}%`;
+            
+            // Make the dot visible again
+            dot.style.visibility = 'visible'; 
+        }
+
+
+        // Move the dot continuously from right to left
+        function moveDot() {
+            dotPositionPercent -= 0.5; // Move the dot to the left
+            dot.style.left = `${dotPositionPercent}%`;
+            if (dotPositionPercent < -2) { // Reset dot when it's out of view
+                resetDotPosition();
+            }
+        }
+
+        let i = getTownIndex();
+        let percentage = (hamsterTurn - distances[i]) / (distances[i + 1] - distances[i]); 
+        percentage = Math.min(1, Math.max(0, percentage));
+
+        hamsterContainer.style.left = `${percentage * 100}%`;
+
+        // Add event listeners for jumping
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space') {
+                event.preventDefault(); // Prevent page scrolling
+                makeHamsterJump();
+            }
+        });
+
+        hamsterContainer.addEventListener('click', makeHamsterJump);
+
+        document.getElementById("Town1").textContent = towns[i];
+        document.getElementById("Town2").textContent = towns[i + 1];
+
+        let playing = false; // Start with the "paused" state
+        
+        const playButton = document.getElementById('playButton');
+        
+        // Toggle play/pause state on click
+        playButton.addEventListener('click', () => {
+            playing = !playing; // Toggle the state
+            if (playing) {
+                playButton.textContent = '⏸'; // Change to "pause"
+                resetDotPosition();
+                moveDot(); 
+            } else {
+                playButton.textContent = '⏵'; // Change to "play"
+            }
+        });
+
+        // Continuously move the dot when playing
+        setInterval(() => {
+            if (playing) {
+                moveDot();
+            }
+        }, 20);
     </script>
-
 </body>
 </html>
