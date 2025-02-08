@@ -208,7 +208,7 @@
     <div class="tab-buttons-container">
         <button class="tab-button active" id="realTimeTab">Real-Time Data</button>
         <button class="tab-button" id="nightSummaryTab">Night Summary</button>
-        <button class="tab-button" id="nouliLive">Live</button>
+        <button class="tab-button" id="nouliLiveTab">Live</button>
     </div>
   </div>
 
@@ -241,8 +241,9 @@
     <div class="chart-container">
       <canvas id="activityHistogram"></canvas>
     </div>
-  </div>    
-  <div class="summary-container" id="nightSummaryContainer">
+  </div>  
+
+  <div class="container" id="nouliLiveContainer">
     <h2>Noulive</h2>
     <img src="/stream.mjpg" width="640" height="480" />
   </div>
@@ -366,12 +367,25 @@
       document.getElementById('nightSummaryContainer').classList.remove('active-tab');
       document.getElementById('realTimeTab').classList.add('active');
       document.getElementById('nightSummaryTab').classList.remove('active');
+      document.getElementById('nouliLiveTab').classList.remove('active');
+      document.getElementById('nouliLiveContainer').classList.remove('active-tab');
     });
 
     document.getElementById('nightSummaryTab').addEventListener('click', function() {
       document.getElementById('nightSummaryContainer').classList.add('active-tab');
       document.getElementById('realTimeContainer').classList.remove('active-tab');
       document.getElementById('nightSummaryTab').classList.add('active');
+      document.getElementById('realTimeTab').classList.remove('active');
+      document.getElementById('nouliLiveTab').classList.remove('active');
+      document.getElementById('nouliLiveContainer').classList.remove('active-tab');
+    });
+
+    document.getElementById('nouliLiveTab').addEventListener('click', function() {
+      document.getElementById('nouliLiveContainer').classList.add('active-tab');
+      document.getElementById('nightSummaryContainer').classList.remove('active-tab');
+      document.getElementById('nouliLiveTab').classList.add('active');
+      document.getElementById('nightSummaryTab').classList.remove('active');
+      document.getElementById('realTimeContainer').classList.remove('active-tab');
       document.getElementById('realTimeTab').classList.remove('active');
     });
 
