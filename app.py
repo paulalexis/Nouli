@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Float, DateTime, select, and_
 import threading
 import time
+import requests
 from datetime import datetime, timedelta
 from sqlalchemy.exc import SQLAlchemyError
 import random
@@ -232,13 +233,30 @@ def upload_image():
 def generate_stream():
     """Generate MJPEG stream of the latest frame."""
     while True:
-        if latest_frame:
-            with frame_lock:
-                frame = latest_frame
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n'
-                   b'Content-Length: %d\r\n\r\n' % len(frame) + frame + b'\r\n')
-        time.sleep(0.01)  # Reduced sleep time to allow faster frame updates
+        try:
+            if latest_frame:
+                with frame_lock:
+                    frame = latest_frame
+                yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n'
+                    b'Content-Length: %d\r\n\r\n' % len(frame) + frame + b'\r\n')
+            else:  # If no frame available, send the hamster image
+                try:
+                    response = requests.get('https://koreus.cdn.li/media/201608/hamster-gourou.jpg')
+                    if response.status_code == 200:
+                        hamster_frame = response.content  # Get the image as binary content
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n'
+                               b'Content-Length: %d\r\n\r\n' % len(hamster_frame) + hamster_frame + b'\r\n')
+                    else:
+                        print(f"Failed to download hamster image, status code: {response.status_code}")
+                except requests.exceptions.RequestException as e:
+                    print(f"Error downloading hamster image: {e}")
+                    time.sleep(1)  # Wait before retrying the image download
+                    continue  # Skip this iteration and try again
+        except Exception as e:
+                print(f"Error generating stream: {e}")
+                time.sleep(1)  # Small delay before trying again
 
 @app.route('/stream.mjpg')
 def stream():
@@ -267,11 +285,7 @@ def data():
             turns = last_two_rows[0].turns
             time = last_two_rows[0].time
 
-            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f").astimezone(tz)
-
-            current_time = datetime.now(tz)
-            if current_time - last_turn_time > timedelta(seconds=3):
-                speed = 0
+            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f")
         else:
             turns, time, speed = 0, datetime.now(tz).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
 
@@ -279,7 +293,7 @@ def data():
         return jsonify({
             'turns': turns,
             'speed': round(speed, 2),
-            'time_turn': time
+            'time_turn': time,
         })
     except Exception as e:
         print(f"Error while fetching data: {e}")

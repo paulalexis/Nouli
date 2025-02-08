@@ -245,7 +245,7 @@
 
   <div class="container" id="nouliLiveContainer">
     <!-- <h2>Noulive</h2> -->
-    <img src="/stream.mjpg" width="640" height="480" />
+    <img src="/stream.mjpg" width="640" height="480" onerror="this.onerror=null;this.src='https://koreus.cdn.li/media/201608/hamster-gourou.jpg';" />
   </div>
   <script>
     // Initialize data for the turns chart (same as before)
@@ -439,7 +439,6 @@
 
               // Add to the chart data
               data.labels.push(timeString);
-              console.log(timeString);
               data.datasets[0].data.push(turns);
             }
           }
@@ -533,16 +532,30 @@
       turnsChart.update();
     }
 
+
+    function isMoreThanThreeSeconds(providedTime) {
+        const providedDate = new Date(providedTime);
+        // console.log(providedDate);
+        const now = new Date();
+        const difference = now - providedDate;
+        return difference > 3000;
+    }
+
+
+
     // Function to fetch hamster data (turns)
     function fetchData() {
       fetch(`/data`)
         .then(response => response.json())
         .then(dataResponse => {
           document.getElementById('turnsDisplay').innerText = `Tours: ${dataResponse.turns}`;
-          document.getElementById('speedDisplay').innerText = `Vitesse: ${Math.round(dataResponse.speed*3.6*100)/100} km/h`;
-          // document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${dataResponse.time_turn} ms`;
           
-          const currentSpeed = dataResponse.speed || 0; // Current speed from server
+          let currentSpeed = 0; // Current speed from server
+          if (!(isMoreThanThreeSeconds(dataResponse.time_turn))){
+            currentSpeed = dataResponse.speed;
+          }
+          // document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${dataResponse.time_turn} ms`;
+          document.getElementById('speedDisplay').innerText = `Vitesse: ${Math.round(currentSpeed*3.6*100)/100} km/h`;
 
           updateSpeedNumbers(speedMin, speedMax, theta1, theta2, N);
           updateSpeed(Math.round(currentSpeed * 3.6 * 100) / 100, speedMin, speedMax, theta1, theta2);
