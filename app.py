@@ -8,6 +8,9 @@ from sqlalchemy.exc import SQLAlchemyError
 import random
 import os
 import logging
+import pytz
+
+tz = pytz.timezone("Europe/Paris")  # or your local time zone
 
 logging.basicConfig()
 logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
@@ -63,12 +66,12 @@ def init_db():
         db.session.add(sensor_state)
         db.session.commit()
     if not Histogram.query.first():
-        histogram = Histogram(id=1, time_start=datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length=interval_length_base, turns=0)
+        histogram = Histogram(id=1, time_start=datetime.now(tz).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], interval_length=interval_length_base, turns=0)
         db.session.add(histogram)
         db.session.commit()
 
 def add_entries_to_histogram():
-    now = datetime.now()
+    now = datetime.now(tz)
     today = now.strftime('%Y/%m/%d')
 
     if now.hour < 12:
@@ -123,7 +126,7 @@ def add_entries_to_histogram():
 
 #         time_now = time.time()
 #         speed = perimeter / (2 * max(time_now - time0, 0.001))  # Avoid division by zero
-#         timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
+#         timestamp = datetime.now(tz).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]
 
 #         new_activity = Activity(time=timestamp, turns=turns0 + 1, speed=round(speed, 3))
 #         db.session.add(new_activity)
@@ -264,13 +267,13 @@ def data():
             turns = last_two_rows[0].turns
             time = last_two_rows[0].time
 
-            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f")
+            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f").astimezone(tz)
 
-            current_time = datetime.now()
+            current_time = datetime.now(tz)
             if current_time - last_turn_time > timedelta(seconds=3):
                 speed = 0
         else:
-            turns, time, speed = 0, datetime.now().strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
+            turns, time, speed = 0, datetime.now(tz).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
 
         # Return the computed data as JSON
         return jsonify({
@@ -310,7 +313,7 @@ def history_bits():
 @app.route('/coHistogram')
 def get_histogram_data():
     try:
-        now = datetime.now()
+        now = datetime.now(tz)
         today = now.strftime('%Y/%m/%d')
 
         if now.hour < 12:
