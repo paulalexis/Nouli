@@ -216,9 +216,9 @@
   <!-- Real-time data and graph -->
   <div class="container active-tab" id="realTimeContainer">
     <div class="info-container">
-      <p id="turnsDisplay">Turns: 0</p>
+      <p id="turnsDisplay">Tours: 0</p>
       <p id="distanceDisplay">Distance: 0</p>
-      <p id="speedDisplay">Speed: 0</p>
+      <p id="speedDisplay">Vitesse: 0</p>
       <!-- <p id="time_turnDisplay">Time since last turn: 0</p> -->
       <div class="compteur">
         <div class="cadran" id="cadran">
@@ -237,14 +237,14 @@
 
   <!-- Night summary section -->
   <div class="summary-container" id="nightSummaryContainer">
-    <h2>Night Summary</h2>
+    <!-- <h2>Night Summary</h2> -->
     <div class="chart-container">
       <canvas id="activityHistogram"></canvas>
     </div>
   </div>  
 
   <div class="container" id="nouliLiveContainer">
-    <h2>Noulive</h2>
+    <!-- <h2>Noulive</h2> -->
     <img src="/stream.mjpg" width="640" height="480" />
   </div>
   <script>
@@ -291,7 +291,7 @@
           x: {
             title: {
               display: true,
-              text: 'Time',
+              text: 'Temps',
               color: 'white',
             },
             ticks: {
@@ -301,7 +301,7 @@
           y: {
             title: {
               display: true,
-              text: 'Total Turns',
+              text: 'Tours',
               color: 'white',
             },
             ticks: {
@@ -331,7 +331,7 @@
           x: {
             title: {
               display: true,
-              text: `Time`,
+              text: `Temps`,
               color: 'white',
             },
             ticks: {
@@ -341,7 +341,7 @@
           y: {
             title: {
               display: true,
-              text: `Turns`,
+              text: `Tours`,
               color: 'white',
             },
             ticks: {
@@ -454,9 +454,9 @@
 
           lastEntry = timeTurnData[timeTurnData.length-1];
 
-          document.getElementById('turnsDisplay').innerText = `Turns: ${lastEntry.turns}`;
+          document.getElementById('turnsDisplay').innerText = `Tours: ${lastEntry.turns}`;
           document.getElementById('distanceDisplay').innerText = `Distance: ${(perimetre * lastEntry.turns).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} m`;
-          document.getElementById('speedDisplay').innerText = `Speed: ${0} km/h`;
+          document.getElementById('speedDisplay').innerText = `Vitesse: ${0} km/h`;
           // document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${0} ms`;
         })
         .catch(error => console.error("Error fetching last 20 entries: ", error));
@@ -538,8 +538,8 @@
       fetch(`/data`)
         .then(response => response.json())
         .then(dataResponse => {
-          document.getElementById('turnsDisplay').innerText = `Turns: ${dataResponse.turns}`;
-          document.getElementById('speedDisplay').innerText = `Speed: ${Math.round(dataResponse.speed*3.6*100)/100} km/h`;
+          document.getElementById('turnsDisplay').innerText = `Tours: ${dataResponse.turns}`;
+          document.getElementById('speedDisplay').innerText = `Vitesse: ${Math.round(dataResponse.speed*3.6*100)/100} km/h`;
           // document.getElementById('time_turnDisplay').innerText = `Time since last turn: ${dataResponse.time_turn} ms`;
           
           const currentSpeed = dataResponse.speed || 0; // Current speed from server
