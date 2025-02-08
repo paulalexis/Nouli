@@ -9,3 +9,4 @@ SQLAlchemy==1.4.47
 gevent
 datetime
 pytz
+requests
