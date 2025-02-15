@@ -218,47 +218,47 @@ def index():
 
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
-    print(f"Image Received !!!!!!!!!!!!!")
     """Receive and store an image from the Raspberry Pi."""
     global latest_frame
     if 'image' in request.files:
         image_file = request.files['image']
-        image_bytes = image_file.read()
 
-        # Store the image in a global variable (thread-safe with lock)
+        # Directly store image file in memory (no extra read/write)
         with frame_lock:
-            latest_frame = image_bytes
+            latest_frame = image_file.read()
+
         return 'Image received', 200
     return 'No image received', 400
 
 def generate_stream():
-    """Generate MJPEG stream of the latest frame."""
+    """Generate MJPEG stream, skipping old frames for real-time video."""
     while True:
         try:
-            if latest_frame:
-                with frame_lock:
-                    frame = latest_frame
+            # Check if a frame is available
+            with frame_lock:
+                frame = latest_frame if latest_frame else None
+
+            if frame:
                 yield (b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n'
                     b'Content-Length: %d\r\n\r\n' % len(frame) + frame + b'\r\n')
-            else:  # If no frame available, send the hamster image
+            else:
+                # Send placeholder hamster image only if no frame received yet
                 try:
-                    response = requests.get('https://koreus.cdn.li/media/201608/hamster-gourou.jpg')
+                    response = requests.get('https://koreus.cdn.li/media/201608/hamster-gourou.jpg', timeout=1)
                     if response.status_code == 200:
-                        hamster_frame = response.content  # Get the image as binary content
+                        hamster_frame = response.content
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n'
                                b'Content-Length: %d\r\n\r\n' % len(hamster_frame) + hamster_frame + b'\r\n')
-                    else:
-                        print(f"Failed to download hamster image, status code: {response.status_code}")
                 except requests.exceptions.RequestException as e:
                     print(f"Error downloading hamster image: {e}")
-                    time.sleep(0.01)  # Wait before retrying the image download
-                    continue  # Skip this iteration and try again
+
         except Exception as e:
-                print(f"Error generating stream: {e}")
-                time.sleep(0.01)   # Small delay before trying again
-        time.sleep(0.01) 
+            print(f"Error generating stream: {e}")
+
+        # **Remove the extra sleep here to avoid unnecessary delay**
+
 
 @app.route('/stream.mjpg')
 def stream():
@@ -378,4 +378,4 @@ if __name__ == '__main__':
     with app.app_context():
         init_db()
     # threading.Thread(target=monitor_line_sensor, daemon=True).start()
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
