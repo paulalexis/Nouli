@@ -218,15 +218,16 @@ def index():
 
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
+    print(f"Image Received !!!!!!")
     """Receive and store an image from the Raspberry Pi."""
     global latest_frame
     if 'image' in request.files:
         image_file = request.files['image']
+        image_bytes = image_file.read()
 
-        # Directly store image file in memory (no extra read/write)
+        # Store the image in a global variable (thread-safe with lock)
         with frame_lock:
-            latest_frame = image_file.read()
-
+            latest_frame = image_bytes
         return 'Image received', 200
     return 'No image received', 400
 
