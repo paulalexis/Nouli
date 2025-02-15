@@ -218,6 +218,7 @@ def index():
 
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
+    print(f"Image Received !!!!!!!!!!!!!")
     """Receive and store an image from the Raspberry Pi."""
     global latest_frame
     if 'image' in request.files:
@@ -252,11 +253,12 @@ def generate_stream():
                         print(f"Failed to download hamster image, status code: {response.status_code}")
                 except requests.exceptions.RequestException as e:
                     print(f"Error downloading hamster image: {e}")
-                    time.sleep(1)  # Wait before retrying the image download
+                    time.sleep(0.01)  # Wait before retrying the image download
                     continue  # Skip this iteration and try again
         except Exception as e:
                 print(f"Error generating stream: {e}")
-                time.sleep(1)  # Small delay before trying again
+                time.sleep(0.01)   # Small delay before trying again
+        time.sleep(0.01) 
 
 @app.route('/stream.mjpg')
 def stream():
@@ -284,8 +286,6 @@ def data():
                 speed = (last_two_rows[0].speed + last_two_rows[1].speed) / 2
             turns = last_two_rows[0].turns
             time = last_two_rows[0].time
-
-            last_turn_time = datetime.strptime(last_two_rows[0].time, "%Y/%m/%d %H:%M:%S.%f")
         else:
             turns, time, speed = 0, datetime.now(tz).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3], 0
 
