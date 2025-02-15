@@ -232,33 +232,33 @@ def upload_image():
     return 'No image received', 400
 
 def generate_stream():
-    """Generate MJPEG stream, skipping old frames for real-time video."""
+    """Generate MJPEG stream of the latest frame."""
     while True:
         try:
-            # Check if a frame is available
-            with frame_lock:
-                frame = latest_frame if latest_frame else None
-
-            if frame:
+            if latest_frame:
+                with frame_lock:
+                    frame = latest_frame
                 yield (b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n'
                     b'Content-Length: %d\r\n\r\n' % len(frame) + frame + b'\r\n')
-            else:
-                # Send placeholder hamster image only if no frame received yet
+            else:  # If no frame available, send the hamster image (as a fallback)
                 try:
-                    response = requests.get('https://koreus.cdn.li/media/201608/hamster-gourou.jpg', timeout=1)
+                    response = requests.get('https://koreus.cdn.li/media/201608/hamster-gourou.jpg')
                     if response.status_code == 200:
-                        hamster_frame = response.content
+                        hamster_frame = response.content  # Get the image as binary content
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n'
                                b'Content-Length: %d\r\n\r\n' % len(hamster_frame) + hamster_frame + b'\r\n')
+                    else:
+                        print(f"Failed to download hamster image, status code: {response.status_code}")
                 except requests.exceptions.RequestException as e:
                     print(f"Error downloading hamster image: {e}")
-
+                    # time.sleep(0.01)  # Wait before retrying the image download
+                    continue  # Skip this iteration and try again
         except Exception as e:
             print(f"Error generating stream: {e}")
-
-        # **Remove the extra sleep here to avoid unnecessary delay**
+            # time.sleep(0.01)   # Small delay before trying again
+        # time.sleep(0.01)  # Small delay between frame generations
 
 
 @app.route('/stream.mjpg')
